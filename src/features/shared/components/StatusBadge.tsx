@@ -14,11 +14,11 @@ export default function StatusBadge({ status, type = 'request', label, customCla
   let displayLabel = label || status;
 
   if (type === 'request') {
-    className = REQUEST_STATUS_COLORS[status as RequestStatus] || 'badge-neutral';
-    displayLabel = label || REQUEST_STATUS_LABELS[status as RequestStatus] || status;
+    className = REQUEST_STATUS_COLORS[status as string] || 'badge-neutral';
+    displayLabel = label || REQUEST_STATUS_LABELS[status as string] || status;
   } else if (type === 'allocation') {
     className = ALLOCATION_STATUS_COLORS[status as AllocationStatus] || 'badge-neutral';
-    displayLabel = label || status;
+    displayLabel = label || (status === 'scheduled' ? 'Scheduled' : status === 'active' ? 'Active' : status === 'completed' ? 'Completed' : String(status));
   } else if (customClass) {
     className = customClass;
   }

@@ -127,7 +127,7 @@ export default function SidebarLayout({
                     {notifications.length === 0 ? (
                       <div className="px-4 py-6 text-center text-sm text-text-muted">No notifications</div>
                     ) : notifications.map(n => (
-                      <div key={n.id} className={`px-4 py-3 ${!n.isRead ? 'bg-teal-50/40' : ''}`}>
+                      <div key={n.id} className={`px-4 py-3 ${(!n.is_read && !n.isRead) ? 'bg-teal-50/40' : ''}`}>
                         <div className="flex items-start gap-2">
                           <span className="mt-0.5">
                             {n.type === 'success' ? '✅' : n.type === 'warning' ? '⚠️' : n.type === 'error' ? '❌' : 'ℹ️'}

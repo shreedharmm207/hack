@@ -53,12 +53,12 @@ export default function ActiveBookings() {
                 <tbody>
                   {active.map(a => (
                     <tr key={a.id}>
-                      <td className="font-medium">{a.farmerName}</td>
-                      <td>{a.resourceName}</td>
-                      <td>{formatDate(a.scheduledStart)}</td>
-                      <td>{formatDate(a.scheduledEnd)}</td>
+                      <td className="font-medium">{a.farmerName || a.farmer?.name || 'Farmer'}</td>
+                      <td>{a.resourceName || a.resource?.name || 'Resource'}</td>
+                      <td>{formatDate(a.scheduledStart || a.scheduled_start || '')}</td>
+                      <td>{formatDate(a.scheduledEnd || a.scheduled_end || '')}</td>
                       <td>
-                        <span className="font-bold text-primary-700">{a.priorityScore}</span>
+                        <span className="font-bold text-primary-700">{a.priorityScore ?? a.priority_score ?? 0}</span>
                         <span className="text-text-muted text-xs">/100</span>
                       </td>
                       <td><StatusBadge status={a.status} type="allocation" /></td>
@@ -86,9 +86,9 @@ export default function ActiveBookings() {
                 <tbody>
                   {past.map(a => (
                     <tr key={a.id}>
-                      <td className="font-medium">{a.farmerName}</td>
-                      <td>{a.resourceName}</td>
-                      <td className="text-text-muted">{formatDate(a.scheduledStart)} → {formatDate(a.scheduledEnd)}</td>
+                      <td className="font-medium">{a.farmerName || a.farmer?.name || 'Farmer'}</td>
+                      <td>{a.resourceName || a.resource?.name || 'Resource'}</td>
+                      <td className="text-text-muted">{formatDate(a.scheduledStart || a.scheduled_start || '')} → {formatDate(a.scheduledEnd || a.scheduled_end || '')}</td>
                       <td><StatusBadge status={a.status} type="allocation" /></td>
                     </tr>
                   ))}

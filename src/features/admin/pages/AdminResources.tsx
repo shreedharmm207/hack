@@ -44,23 +44,23 @@ export default function AdminResources() {
               </tr>
             </thead>
             <tbody>
-              {resources.map(r => (
+              {(resources || []).map((r: any) => (
                 <tr key={r.id}>
                   <td className="font-medium">{r.name}</td>
                   <td>
                     <span className="flex items-center gap-1.5">
-                      <span>{RESOURCE_CATEGORY_ICONS[r.category]}</span>
-                      <span className="text-text-muted text-xs capitalize">{r.category.replace('_', ' ')}</span>
+                      <span>{RESOURCE_CATEGORY_ICONS[r.category as keyof typeof RESOURCE_CATEGORY_ICONS] || '📦'}</span>
+                      <span className="text-text-muted text-xs capitalize">{r.category?.replace('_', ' ')}</span>
                     </span>
                   </td>
-                  <td className="text-text-muted">{r.providerName}</td>
+                  <td className="text-text-muted">{r.providerName || r.organization?.org_name || 'Provider'}</td>
                   <td>{r.quantity}</td>
-                  <td>{r.dailyRate ? `₹${r.dailyRate.toLocaleString()}` : '—'}</td>
+                  <td>{r.dailyRate || r.daily_rate ? `₹${(r.dailyRate || r.daily_rate).toLocaleString()}` : '—'}</td>
                   <td>
                     <StatusBadge
                       status={r.status}
                       type="custom"
-                      label={RESOURCE_STATUS_LABELS[r.status]}
+                      label={RESOURCE_STATUS_LABELS[r.status as keyof typeof RESOURCE_STATUS_LABELS] || r.status}
                       customClass={
                         r.status === 'available' ? 'badge badge-success' :
                         r.status === 'maintenance' ? 'badge badge-warning' :

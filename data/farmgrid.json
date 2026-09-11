@@ -1,0 +1,384 @@
+{
+  "profiles": [
+    {
+      "id": "33333333-3333-3333-3333-333333333333",
+      "email": "admin@farmgrid.demo",
+      "password": "FarmGrid@Admin123",
+      "role": "admin",
+      "full_name": "FarmGrid Administrator",
+      "phone": "+91 98765 43212",
+      "created_at": "2026-09-01T00:00:00.000Z"
+    },
+    {
+      "id": "11111111-1111-1111-1111-111111111111",
+      "email": "farmer@farmgrid.demo",
+      "password": "Farmer@123",
+      "role": "farmer",
+      "full_name": "Ramesh Patel",
+      "phone": "+91 98765 43210",
+      "created_at": "2026-09-01T00:00:00.000Z"
+    },
+    {
+      "id": "22222222-2222-2222-2222-222222222222",
+      "email": "org@farmgrid.demo",
+      "password": "Org@123",
+      "role": "organization",
+      "full_name": "Kaveri Agri Cooperative",
+      "phone": "+91 98765 43211",
+      "created_at": "2026-09-01T00:00:00.000Z"
+    }
+  ],
+  "farmers": [
+    {
+      "id": "f1111111-1111-1111-1111-111111111111",
+      "user_id": "11111111-1111-1111-1111-111111111111",
+      "name": "Ramesh Patel",
+      "email": "farmer@farmgrid.demo",
+      "phone": "+91 98765 43210",
+      "village": "Mandya Rural",
+      "district": "Mandya",
+      "state": "Karnataka",
+      "lat": 12.5222,
+      "lng": 76.8978,
+      "farm_size_acres": 4.5,
+      "primary_crop": "Paddy",
+      "crop_stage": "harvesting",
+      "allocation_attempts": 4,
+      "successful_allocations": 3,
+      "consecutive_losses": 0,
+      "created_at": "2026-09-01T00:00:00.000Z"
+    }
+  ],
+  "organizations": [
+    {
+      "id": "o2222222-2222-2222-2222-222222222222",
+      "user_id": "22222222-2222-2222-2222-222222222222",
+      "org_name": "Kaveri Agri Cooperative",
+      "contact_person": "Suresh Gowda",
+      "contact_number": "+91 98765 43211",
+      "operational_region": "Mandya & Mysuru Districts",
+      "address": "Main Market Yard, Mandya, Karnataka",
+      "org_type": "cooperative",
+      "is_approved": true,
+      "created_at": "2026-09-01T00:00:00.000Z"
+    }
+  ],
+  "resources": [
+    {
+      "id": "res-tractor-01",
+      "organization_id": "o2222222-2222-2222-2222-222222222222",
+      "name": "Mahindra 575 DI Tractor",
+      "category": "tractor",
+      "description": "45 HP high-torque agricultural tractor with rotavator attachment",
+      "quantity": 2,
+      "status": "available",
+      "daily_rate": 1500,
+      "operating_hours_start": 6,
+      "operating_hours_end": 20,
+      "created_at": "2026-09-01T00:00:00.000Z"
+    },
+    {
+      "id": "res-tractor-02",
+      "organization_id": "o2222222-2222-2222-2222-222222222222",
+      "name": "John Deere 5050 D Tractor",
+      "category": "tractor",
+      "description": "50 HP heavy-duty tractor for ploughing and haulage",
+      "quantity": 1,
+      "status": "available",
+      "daily_rate": 1800,
+      "operating_hours_start": 6,
+      "operating_hours_end": 20,
+      "created_at": "2026-09-01T00:00:00.000Z"
+    },
+    {
+      "id": "res-harvester-01",
+      "organization_id": "o2222222-2222-2222-2222-222222222222",
+      "name": "Kubota DC-68G Harvester",
+      "category": "harvester",
+      "description": "Track-type combine harvester ideal for wet paddy & grain crops",
+      "quantity": 1,
+      "status": "available",
+      "daily_rate": 3500,
+      "operating_hours_start": 6,
+      "operating_hours_end": 19,
+      "created_at": "2026-09-01T00:00:00.000Z"
+    },
+    {
+      "id": "res-pump-01",
+      "organization_id": "o2222222-2222-2222-2222-222222222222",
+      "name": "Kirloskar 5HP Portable Pump",
+      "category": "portable_pump",
+      "description": "Diesel irrigation water pump with 100m delivery pipe",
+      "quantity": 3,
+      "status": "available",
+      "daily_rate": 400,
+      "operating_hours_start": 5,
+      "operating_hours_end": 21,
+      "created_at": "2026-09-01T00:00:00.000Z"
+    },
+    {
+      "id": "res-drip-01",
+      "organization_id": "o2222222-2222-2222-2222-222222222222",
+      "name": "Jain Drip Irrigation Kit",
+      "category": "drip_irrigation",
+      "description": "Modular micro-irrigation system for vegetable & horticultural crops",
+      "quantity": 2,
+      "status": "available",
+      "daily_rate": 600,
+      "operating_hours_start": 6,
+      "operating_hours_end": 18,
+      "created_at": "2026-09-01T00:00:00.000Z"
+    },
+    {
+      "id": "res-drone-01",
+      "organization_id": "o2222222-2222-2222-2222-222222222222",
+      "name": "DJI Agras T40 Drone Sprayer",
+      "category": "drone_spraying",
+      "description": "40L payload precision aerial pesticide and fertilizer spraying drone",
+      "quantity": 1,
+      "status": "available",
+      "daily_rate": 2200,
+      "operating_hours_start": 6,
+      "operating_hours_end": 18,
+      "created_at": "2026-09-01T00:00:00.000Z"
+    },
+    {
+      "id": "res-labour-01",
+      "organization_id": "o2222222-2222-2222-2222-222222222222",
+      "name": "Kaveri Labour Team (5 Workers)",
+      "category": "labour_team",
+      "description": "Skilled agricultural labour team for transplanting, weeding and harvesting",
+      "quantity": 2,
+      "status": "available",
+      "daily_rate": 1200,
+      "operating_hours_start": 7,
+      "operating_hours_end": 17,
+      "created_at": "2026-09-01T00:00:00.000Z"
+    },
+    {
+      "id": "res-tiller-01",
+      "organization_id": "o2222222-2222-2222-2222-222222222222",
+      "name": "Shaktiman Rotary Tiller 6ft",
+      "category": "tiller",
+      "description": "PTO driven rotary cultivator for fine seedbed preparation",
+      "quantity": 2,
+      "status": "available",
+      "daily_rate": 800,
+      "operating_hours_start": 6,
+      "operating_hours_end": 19,
+      "created_at": "2026-09-01T00:00:00.000Z"
+    }
+  ],
+  "requests": [
+    {
+      "id": "req_1789090671109_dt22",
+      "farmer_id": "f1111111-1111-1111-1111-111111111111",
+      "organization_id": "o2222222-2222-2222-2222-222222222222",
+      "resource_id": "res-tractor-01",
+      "resource_type": "tractor",
+      "resource_needed": "Tractor for crop",
+      "earliest_start": "2026-09-13T01:37:51.107Z",
+      "latest_end": "2026-09-17T01:37:51.108Z",
+      "duration_days": 1,
+      "crop_stage": "vegetative",
+      "urgency_level": "medium",
+      "urgency_reason": "Needed for farming operations.",
+      "farm_lat": 12.5222,
+      "farm_lng": 76.8978,
+      "additional_notes": null,
+      "voice_request": true,
+      "priority_score": null,
+      "priority_breakdown": {
+        "urgency": 15,
+        "weatherRisk": null,
+        "cropStage": 13,
+        "waitingTime": 3,
+        "logistics": 2,
+        "constraints": 3,
+        "total": null,
+        "explanation": "Standard priority allocation based on scoring criteria."
+      },
+      "created_at": "2026-09-11T01:37:51.109Z",
+      "updated_at": "2026-09-11T01:37:51.115Z",
+      "status": "scheduled",
+      "allocation_method": "auto"
+    },
+    {
+      "id": "req_1789090193291_rqoe",
+      "farmer_id": "f1111111-1111-1111-1111-111111111111",
+      "organization_id": "o2222222-2222-2222-2222-222222222222",
+      "resource_id": "res-tractor-01",
+      "resource_type": "tractor",
+      "resource_needed": "Mahindra 575 DI Tractor",
+      "earliest_start": "2026-09-11",
+      "latest_end": "2026-09-14",
+      "duration_days": 2,
+      "crop_stage": "harvesting",
+      "urgency_level": "medium",
+      "urgency_reason": "Field preparation for harvesting",
+      "farm_lat": 12.5222,
+      "farm_lng": 76.8978,
+      "additional_notes": null,
+      "voice_request": false,
+      "priority_score": null,
+      "priority_breakdown": {
+        "urgency": 18,
+        "weatherRisk": null,
+        "cropStage": 20,
+        "waitingTime": 3,
+        "logistics": 2,
+        "constraints": 3,
+        "total": null,
+        "explanation": "This farmer received priority due to: crop at peak sensitive stage."
+      },
+      "created_at": "2026-09-11T01:29:53.291Z",
+      "updated_at": "2026-09-11T01:29:53.297Z",
+      "status": "scheduled",
+      "allocation_method": "auto"
+    },
+    {
+      "id": "req_1789089977724_3krd",
+      "farmer_id": "f1111111-1111-1111-1111-111111111111",
+      "organization_id": "o2222222-2222-2222-2222-222222222222",
+      "resource_type": "tractor",
+      "resource_needed": "Mahindra 575 DI Tractor for 4.5 acres",
+      "earliest_start": "2026-09-12T10:00:00.000Z",
+      "latest_end": "2026-09-15T18:00:00.000Z",
+      "duration_days": 2,
+      "crop_stage": "harvesting",
+      "urgency_level": "high",
+      "urgency_reason": "Rain expected in 3 days",
+      "priority_score": 82,
+      "created_at": "2026-09-11T01:26:17.724Z",
+      "updated_at": "2026-09-11T01:26:17.724Z",
+      "resource_id": "res-tractor-01",
+      "status": "scheduled",
+      "allocation_method": "auto"
+    }
+  ],
+  "allocations": [
+    {
+      "id": "alloc_1789090671115",
+      "request_id": "req_1789090671109_dt22",
+      "resource_id": "res-tractor-01",
+      "farmer_id": "f1111111-1111-1111-1111-111111111111",
+      "organization_id": "o2222222-2222-2222-2222-222222222222",
+      "scheduled_start": "2026-09-13T01:37:51.107Z",
+      "scheduled_end": "2026-09-17T01:37:51.108Z",
+      "status": "scheduled",
+      "priority_score": 85,
+      "priority_breakdown": {
+        "urgency": 15,
+        "weatherRisk": null,
+        "cropStage": 13,
+        "waitingTime": 3,
+        "logistics": 2,
+        "constraints": 3,
+        "total": null,
+        "explanation": "Standard priority allocation based on scoring criteria."
+      },
+      "allocation_method": "auto",
+      "created_at": "2026-09-11T01:37:51.115Z"
+    },
+    {
+      "id": "alloc_1789090193298",
+      "request_id": "req_1789090193291_rqoe",
+      "resource_id": "res-tractor-01",
+      "farmer_id": "f1111111-1111-1111-1111-111111111111",
+      "organization_id": "o2222222-2222-2222-2222-222222222222",
+      "scheduled_start": "2026-09-11",
+      "scheduled_end": "2026-09-14",
+      "status": "scheduled",
+      "priority_score": 85,
+      "priority_breakdown": {
+        "urgency": 18,
+        "weatherRisk": null,
+        "cropStage": 20,
+        "waitingTime": 3,
+        "logistics": 2,
+        "constraints": 3,
+        "total": null,
+        "explanation": "This farmer received priority due to: crop at peak sensitive stage."
+      },
+      "allocation_method": "auto",
+      "created_at": "2026-09-11T01:29:53.298Z"
+    },
+    {
+      "id": "alloc_1789089977724",
+      "request_id": "req_1789089977724_3krd",
+      "resource_id": "res-tractor-01",
+      "farmer_id": "f1111111-1111-1111-1111-111111111111",
+      "organization_id": "o2222222-2222-2222-2222-222222222222",
+      "scheduled_start": "2026-09-12T10:00:00.000Z",
+      "scheduled_end": "2026-09-15T18:00:00.000Z",
+      "status": "scheduled",
+      "priority_score": 82,
+      "priority_breakdown": {},
+      "allocation_method": "auto",
+      "created_at": "2026-09-11T01:26:17.724Z"
+    }
+  ],
+  "conflicts": [],
+  "audit_logs": [
+    {
+      "id": "aud_1789090671124_a1wr",
+      "actor_name": "Ramesh Patel",
+      "actor_role": "farmer",
+      "action": "REQUEST_CREATED",
+      "entity_type": "request",
+      "entity_id": "req_1789090671109_dt22",
+      "details": "Farmer Ramesh Patel submitted a tractor request. Priority: NaN/100",
+      "metadata": {
+        "priority_score": null
+      },
+      "created_at": "2026-09-11T01:37:51.124Z",
+      "updated_at": "2026-09-11T01:37:51.127Z"
+    },
+    {
+      "id": "aud_1789090193300_2j9l",
+      "actor_name": "Ramesh Patel",
+      "actor_role": "farmer",
+      "action": "REQUEST_CREATED",
+      "entity_type": "request",
+      "entity_id": "req_1789090193291_rqoe",
+      "details": "Farmer Ramesh Patel submitted a tractor request. Priority: NaN/100",
+      "metadata": {
+        "priority_score": null
+      },
+      "created_at": "2026-09-11T01:29:53.300Z",
+      "updated_at": "2026-09-11T01:29:53.303Z"
+    },
+    {
+      "id": "audit-seed-01",
+      "actor_name": "System",
+      "actor_role": "admin",
+      "action": "SYSTEM_INITIALIZED",
+      "entity_type": "system",
+      "details": "FarmGrid Single-Source-of-Truth Database initialized.",
+      "created_at": "2026-09-01T00:00:00.000Z"
+    }
+  ],
+  "notifications": [],
+  "fairness_events": [
+    {
+      "id": "fai_1789090671124_o2py",
+      "farmer_id": "f1111111-1111-1111-1111-111111111111",
+      "event_type": "request_submitted",
+      "request_id": "req_1789090671109_dt22",
+      "priority_score": null,
+      "details": "Request submitted for tractor.",
+      "created_at": "2026-09-11T01:37:51.124Z",
+      "updated_at": "2026-09-11T01:37:51.130Z"
+    },
+    {
+      "id": "fai_1789090193301_41f5",
+      "farmer_id": "f1111111-1111-1111-1111-111111111111",
+      "event_type": "request_submitted",
+      "request_id": "req_1789090193291_rqoe",
+      "priority_score": null,
+      "details": "Request submitted for tractor.",
+      "created_at": "2026-09-11T01:29:53.301Z",
+      "updated_at": "2026-09-11T01:29:53.306Z"
+    }
+  ]
+}

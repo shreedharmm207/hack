@@ -23,23 +23,45 @@ interface ResourceForm {
 function ResourceModal({
   resource, providerId, providerName, onClose
 }: {
-  resource?: Resource; providerId: string; providerName: string;
+  resource?: any; providerId: string; providerName?: string;
   onClose: (saved: boolean) => void;
 }) {
   const dispatch = useAppDispatch();
   const { register, handleSubmit, formState: { errors } } = useForm<ResourceForm>({
     defaultValues: resource ? {
       name: resource.name, category: resource.category, description: resource.description,
-      quantity: resource.quantity, dailyRate: resource.dailyRate || 0,
+      quantity: resource.quantity, dailyRate: resource.dailyRate || resource.daily_rate || 0,
       status: resource.status, lat: resource.lat, lng: resource.lng,
     } : { status: 'available', quantity: 1, lat: 20.5937, lng: 78.9629 }
   });
 
   const onSubmit = async (data: ResourceForm) => {
     if (resource) {
-      await dispatch(updateResource({ ...resource, ...data }));
+      await dispatch(updateResource({
+        ...resource,
+        name: data.name,
+        category: data.category,
+        description: data.description,
+        quantity: Number(data.quantity),
+        daily_rate: Number(data.dailyRate),
+        status: data.status,
+        lat: Number(data.lat),
+        lng: Number(data.lng),
+      } as any));
     } else {
-      await dispatch(addResource({ ...data, providerId, providerName }));
+      await dispatch(addResource({
+        organization_id: providerId,
+        name: data.name,
+        category: data.category,
+        description: data.description,
+        quantity: Number(data.quantity),
+        daily_rate: Number(data.dailyRate),
+        status: data.status,
+        lat: Number(data.lat),
+        lng: Number(data.lng),
+        operating_hours_start: 6,
+        operating_hours_end: 18,
+      } as any));
     }
     onClose(true);
   };
@@ -120,7 +142,7 @@ export default function ResourceManagement() {
   const { user } = useAppSelector(s => s.auth);
   const { profile, resources, isLoading } = useAppSelector(s => s.provider);
   const [showModal, setShowModal] = useState(false);
-  const [editResource, setEditResource] = useState<Resource | undefined>();
+  const [editResource, setEditResource] = useState<any>(undefined);
 
   useEffect(() => {
     if (user?.id) dispatch(loadProviderData(user.id));
@@ -159,7 +181,7 @@ export default function ResourceManagement() {
               <div key={r.id} className="card-hover p-5">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-2xl">{RESOURCE_CATEGORY_ICONS[r.category]}</span>
+                    <span className="text-2xl">{RESOURCE_CATEGORY_ICONS[r.category as keyof typeof RESOURCE_CATEGORY_ICONS] || '📦'}</span>
                     <div>
                       <div className="text-sm font-semibold text-text-primary">{r.name}</div>
                       <div className="text-xs text-text-muted capitalize">{r.category.replace('_', ' ')}</div>
@@ -168,7 +190,7 @@ export default function ResourceManagement() {
                   <StatusBadge
                     status={r.status}
                     type="custom"
-                    label={RESOURCE_STATUS_LABELS[r.status]}
+                    label={RESOURCE_STATUS_LABELS[r.status as keyof typeof RESOURCE_STATUS_LABELS] || r.status}
                     customClass={
                       r.status === 'available' ? 'badge badge-success' :
                       r.status === 'maintenance' ? 'badge badge-warning' :
@@ -211,7 +233,7 @@ export default function ResourceManagement() {
         <ResourceModal
           resource={editResource}
           providerId={profile.id}
-          providerName={profile.orgName}
+          providerName={profile.orgName || profile.org_name || ''}
           onClose={() => setShowModal(false)}
         />
       )}

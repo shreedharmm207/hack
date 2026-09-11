@@ -1,6 +1,8 @@
-import type {
-  ResourceRequest, PriorityBreakdown, CropStage, UrgencyLevel
-} from '../types';
+import type { PriorityBreakdown, CropStage, UrgencyLevel } from '../types';
+
+// Accept either old camelCase (ResourceRequest) or new snake_case (DB row) shape
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type PriorityInput = any;
 
 // ─── Priority Scoring Engine ────────────────────────────────────────────────
 // Weights: urgency 25%, weatherRisk 25%, cropStage 20%, waitingTime 15%,
@@ -15,9 +17,9 @@ const WEIGHTS = {
   constraints: 5,
 };
 
-function scoreUrgency(request: ResourceRequest): number {
+function scoreUrgency(request: PriorityInput): number {
   const now = new Date();
-  const latestEnd = new Date(request.latestEnd);
+  const latestEnd = new Date((request.latestEnd || request.latest_end || new Date().toISOString()) as string);
   const daysUntilDeadline = Math.max(0, (latestEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   
   // More urgent = closer deadline
@@ -28,13 +30,14 @@ function scoreUrgency(request: ResourceRequest): number {
     low: 0.30,
   };
   
-  const levelScore = urgencyMap[request.urgencyLevel] * 15;
+  const urgencyLevel = (request.urgencyLevel || request.urgency_level || 'medium') as UrgencyLevel;
+  const levelScore = urgencyMap[urgencyLevel] * 15;
   const deadlineScore = daysUntilDeadline <= 3 ? 10 : daysUntilDeadline <= 7 ? 7 : daysUntilDeadline <= 14 ? 4 : 1;
   
   return Math.min(WEIGHTS.urgency, Math.round(levelScore + deadlineScore));
 }
 
-function scoreWeatherRisk(request: ResourceRequest): number {
+function scoreWeatherRisk(request: PriorityInput): number {
   // Simulate weather risk based on crop stage and urgency
   // In production, this would call a weather API
   const cropStageRisk: Record<CropStage, number> = {
@@ -44,13 +47,14 @@ function scoreWeatherRisk(request: ResourceRequest): number {
     seedling: 0.55,
     post_harvest: 0.25,
   };
-  const baseRisk = cropStageRisk[request.cropStage] ?? 0.5;
+  const cropStage = (request.cropStage || request.crop_stage || 'vegetative') as CropStage;
+  const baseRisk = cropStageRisk[cropStage] ?? 0.5;
   // Add some pseudo-random variation based on request ID
   const variance = (parseInt(request.id.slice(-4), 16) % 20) / 100;
   return Math.min(WEIGHTS.weatherRisk, Math.round((baseRisk + variance) * WEIGHTS.weatherRisk));
 }
 
-function scoreCropStage(request: ResourceRequest): number {
+function scoreCropStage(request: PriorityInput): number {
   const stageScores: Record<CropStage, number> = {
     harvesting: 20,
     flowering: 17,
@@ -58,7 +62,8 @@ function scoreCropStage(request: ResourceRequest): number {
     seedling: 10,
     post_harvest: 5,
   };
-  return stageScores[request.cropStage] ?? 10;
+  const cs = (request.cropStage || request.crop_stage || 'vegetative') as CropStage;
+  return stageScores[cs] ?? 10;
 }
 
 function scoreWaitingTime(createdAt: string): number {
@@ -104,7 +109,7 @@ function scoreConstraints(resourceQuantity: number, pendingRequests: number): nu
 }
 
 export function calculatePriority(
-  request: ResourceRequest,
+  request: PriorityInput,
   resourceLat = 20.5937,
   resourceLng = 78.9629,
   resourceQuantity = 1,
@@ -113,8 +118,11 @@ export function calculatePriority(
   const urgency = scoreUrgency(request);
   const weatherRisk = scoreWeatherRisk(request);
   const cropStageScore = scoreCropStage(request);
-  const waitingTime = scoreWaitingTime(request.createdAt);
-  const logistics = scoreLogistics(request.lat, request.lng, resourceLat, resourceLng);
+  const createdAt = (request.createdAt || request.created_at || new Date().toISOString()) as string;
+  const waitingTime = scoreWaitingTime(createdAt);
+  const lat = (request.lat || request.farm_lat || 20.5937) as number;
+  const lng = (request.lng || request.farm_lng || 78.9629) as number;
+  const logistics = scoreLogistics(lat, lng, resourceLat, resourceLng);
   const constraints = scoreConstraints(resourceQuantity, pendingRequests);
   
   const total = urgency + weatherRisk + cropStageScore + waitingTime + logistics + constraints;

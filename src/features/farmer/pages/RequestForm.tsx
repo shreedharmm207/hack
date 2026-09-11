@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useAppDispatch, useAppSelector } from '../../../app/hooks';
 import { submitRequest, loadFarmerData } from '../farmerSlice';
+import { supabase } from '../../../lib/supabase';
 import SidebarLayout from '../../shared/layouts/SidebarLayout';
 import PriorityScoreCard from '../../shared/components/PriorityScoreCard';
 import { RESOURCE_CATEGORIES, CROP_STAGES } from '../../../utils/constants';
@@ -19,6 +20,7 @@ const FARMER_NAV = [
 
 interface FormData {
   resourceType: ResourceCategory;
+  organizationId?: string;
   resourceNeeded: string;
   earliestStart: string;
   latestEnd: string;
@@ -34,18 +36,38 @@ export default function RequestForm() {
   const navigate = useNavigate();
   const { user } = useAppSelector(s => s.auth);
   const { profile, isLoading } = useAppSelector(s => s.farmer);
+  const [organizations, setOrganizations] = useState<any[]>([]);
   const [previewScore, setPreviewScore] = useState<ReturnType<typeof calculatePriority> | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
   const { register, handleSubmit, watch, formState: { errors } } = useForm<FormData>({
-    defaultValues: { durationDays: 1, urgencyLevel: 'medium', cropStage: profile?.cropStage || 'vegetative' }
+    defaultValues: {
+      durationDays: 1,
+      urgencyLevel: 'medium',
+      cropStage: ((profile?.cropStage || profile?.crop_stage || 'vegetative') as any),
+      earliestStart: new Date().toISOString().split('T')[0],
+      latestEnd: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0],
+    }
   });
 
   const watchedValues = watch();
 
   useEffect(() => {
-    if (user?.id && !profile) dispatch(loadFarmerData(user.id));
+    if (user?.id) dispatch(loadFarmerData(user.id));
   }, [user]);
+
+  // Load organizations from database
+  useEffect(() => {
+    async function fetchOrgs() {
+      const { data } = await (supabase.from('organizations') as any).select('*');
+      if (data && data.length > 0) {
+        setOrganizations(data);
+      } else {
+        setOrganizations([{ id: 'o2222222-2222-2222-2222-222222222222', org_name: 'Kaveri Agri Cooperative' }]);
+      }
+    }
+    fetchOrgs();
+  }, []);
 
   // Live priority preview
   useEffect(() => {
@@ -70,16 +92,46 @@ export default function RequestForm() {
       };
       setPreviewScore(calculatePriority(mockReq));
     }
-  }, [watchedValues.urgencyLevel, watchedValues.latestEnd, watchedValues.cropStage]);
+  }, [watchedValues.urgencyLevel, watchedValues.latestEnd, watchedValues.cropStage, profile]);
 
   const onSubmit = async (data: FormData) => {
-    if (!profile) return;
+    const farmerId = profile?.id || user?.id || 'f1111111-1111-1111-1111-111111111111';
+    const farmerProfile = profile || {
+      id: farmerId,
+      user_id: user?.id || farmerId,
+      name: user?.full_name || 'Ramesh Patel',
+      email: user?.email || 'farmer@farmgrid.demo',
+      phone: '+91 98765 43210',
+      lat: 12.5222,
+      lng: 76.8978,
+      village: 'Mandya Rural',
+      district: 'Mandya',
+      state: 'Karnataka',
+      farm_size_acres: 4.5,
+      allocation_attempts: 0,
+      successful_allocations: 0,
+      consecutive_losses: 0,
+      waiting_started_at: null,
+    };
+
+    const targetOrgId = data.organizationId || (organizations[0]?.id || 'o2222222-2222-2222-2222-222222222222');
+
     await dispatch(submitRequest({
-      ...data,
-      farmerId: profile.id,
-      farmerName: profile.name,
-      lat: profile.lat,
-      lng: profile.lng,
+      farmer_id: farmerId,
+      farmer_profile: farmerProfile as any,
+      resource_type: data.resourceType,
+      resource_needed: data.resourceNeeded,
+      organization_id: targetOrgId,
+      earliest_start: data.earliestStart,
+      latest_end: data.latestEnd,
+      duration_days: data.durationDays,
+      crop_stage: data.cropStage,
+      urgency_level: data.urgencyLevel,
+      urgency_reason: data.urgencyReason,
+      farm_lat: farmerProfile.lat,
+      farm_lng: farmerProfile.lng,
+      additional_notes: data.additionalNotes,
+      voice_request: false,
     }));
     setSubmitted(true);
     setTimeout(() => navigate('/farmer/requests'), 1500);
@@ -126,16 +178,28 @@ export default function RequestForm() {
                     {errors.resourceType && <p className="field-error">{errors.resourceType.message}</p>}
                   </div>
                   <div>
+                    <label className="field-label">Target Organization *</label>
+                    <select className="field-select" {...register('organizationId')}>
+                      {organizations.map(org => (
+                        <option key={org.id} value={org.id}>
+                          {org.org_name || org.orgName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div>
                     <label className="field-label">Duration Required (Days) *</label>
                     <input type="number" min={1} max={30} className="field-input"
                       {...register('durationDays', { required: true, min: 1, valueAsNumber: true })} />
                   </div>
-                </div>
-                <div className="mt-4">
-                  <label className="field-label">Describe Resource Needed *</label>
-                  <input className="field-input" placeholder="e.g. Combine harvester for 12 acres of soybean"
-                    {...register('resourceNeeded', { required: 'Describe what you need' })} />
-                  {errors.resourceNeeded && <p className="field-error">{errors.resourceNeeded.message}</p>}
+                  <div>
+                    <label className="field-label">Describe Resource Needed *</label>
+                    <input className="field-input" placeholder="e.g. 45HP Tractor with rotavator"
+                      {...register('resourceNeeded', { required: 'Describe what you need' })} />
+                    {errors.resourceNeeded && <p className="field-error">{errors.resourceNeeded.message}</p>}
+                  </div>
                 </div>
               </div>
 

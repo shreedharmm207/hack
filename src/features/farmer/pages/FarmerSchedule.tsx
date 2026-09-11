@@ -4,7 +4,6 @@ import { loadFarmerData } from '../farmerSlice';
 import SidebarLayout from '../../shared/layouts/SidebarLayout';
 import StatusBadge from '../../shared/components/StatusBadge';
 import { formatDate } from '../../../utils/constants';
-import { MOCK_ALLOCATIONS, MOCK_SCHEDULES } from '../../../services/mockData';
 
 const FARMER_NAV = [
   { path: '/farmer/dashboard', label: 'Dashboard', icon: '📊' },
@@ -27,13 +26,13 @@ function TimelineDot({ status }: { status: string }) {
 export default function FarmerSchedule() {
   const dispatch = useAppDispatch();
   const { user } = useAppSelector(s => s.auth);
-  const { profile } = useAppSelector(s => s.farmer);
+  const { profile, allocations } = useAppSelector(s => s.farmer);
 
   useEffect(() => {
     if (user?.id) dispatch(loadFarmerData(user.id));
   }, [user]);
 
-  const myAllocations = MOCK_ALLOCATIONS.filter(a => profile && a.farmerId === profile.id);
+  const myAllocations = (allocations || []);
 
   return (
     <SidebarLayout navItems={FARMER_NAV} portalName="Farmer Portal" portalColor="bg-primary-700" logoIcon="🌾">
@@ -67,28 +66,28 @@ export default function FarmerSchedule() {
                           <div>
                             <div className="flex items-center gap-2 mb-1">
                               <span className="text-xl">🚜</span>
-                              <span className="font-semibold text-text-primary">{a.resourceName}</span>
+                              <span className="font-semibold text-text-primary">{a.resourceName || a.resource?.name || 'Assigned Resource'}</span>
                             </div>
-                            <div className="text-xs text-text-muted">{a.providerName}</div>
+                            <div className="text-xs text-text-muted">{a.providerName || a.organization?.org_name || 'Agricultural Provider'}</div>
                           </div>
                           <StatusBadge status={a.status} type="allocation" />
                         </div>
                         <div className="mt-3 grid grid-cols-3 gap-3">
                           <div>
                             <div className="text-2xs text-text-muted uppercase tracking-wider">Start</div>
-                            <div className="text-sm font-medium text-text-primary">{formatDate(a.scheduledStart)}</div>
+                            <div className="text-sm font-medium text-text-primary">{formatDate(a.scheduledStart || a.scheduled_start || '')}</div>
                           </div>
                           <div>
                             <div className="text-2xs text-text-muted uppercase tracking-wider">End</div>
-                            <div className="text-sm font-medium text-text-primary">{formatDate(a.scheduledEnd)}</div>
+                            <div className="text-sm font-medium text-text-primary">{formatDate(a.scheduledEnd || a.scheduled_end || '')}</div>
                           </div>
                           <div>
                             <div className="text-2xs text-text-muted uppercase tracking-wider">Priority</div>
-                            <div className="text-sm font-bold text-primary-700">{a.priorityScore}/100</div>
+                            <div className="text-sm font-bold text-primary-700">{a.priorityScore || a.priority_score || 0}/100</div>
                           </div>
                         </div>
                         <div className="mt-3 pt-3 border-t border-border">
-                          <div className="text-xs text-text-muted">{a.priorityBreakdown.explanation}</div>
+                          <div className="text-xs text-text-muted">{(a.priorityBreakdown as any)?.explanation || (a.priority_breakdown as any)?.explanation || 'Automated allocation via priority scheduling.'}</div>
                         </div>
                       </div>
                     </div>

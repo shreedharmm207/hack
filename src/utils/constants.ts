@@ -57,24 +57,42 @@ export const PROVIDER_TYPES: Record<ProviderType, string> = {
   government: 'Government Agency',
 };
 
-export const REQUEST_STATUS_LABELS: Record<RequestStatus, string> = {
-  pending: 'Pending Review',
+export const REQUEST_STATUS_LABELS: Record<string, string> = {
+  draft: 'Draft',
+  submitted: 'Submitted',
   processing: 'Processing',
+  scheduled: 'Auto-Scheduled ✅',
+  waitlisted: 'Waitlisted',
+  conflict: 'In Conflict',
+  disrupted: 'Disrupted',
+  rescheduled: 'Rescheduled',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+  manual_review: 'Manual Review Required',
+  // Legacy
+  pending: 'Pending Review',
   approved: 'Approved',
   allocated: 'Allocated',
   rejected: 'Rejected',
-  cancelled: 'Cancelled',
-  completed: 'Completed',
 };
 
-export const REQUEST_STATUS_COLORS: Record<RequestStatus, string> = {
-  pending: 'badge-warning',
+export const REQUEST_STATUS_COLORS: Record<string, string> = {
+  draft: 'badge-neutral',
+  submitted: 'badge-info',
   processing: 'badge-info',
+  scheduled: 'badge-success',
+  waitlisted: 'badge-warning',
+  conflict: 'badge-danger',
+  disrupted: 'badge-danger',
+  rescheduled: 'badge-primary',
+  completed: 'badge-success',
+  cancelled: 'badge-neutral',
+  manual_review: 'badge-danger',
+  // Legacy
+  pending: 'badge-warning',
   approved: 'badge-primary',
   allocated: 'badge-success',
   rejected: 'badge-danger',
-  cancelled: 'badge-neutral',
-  completed: 'badge-success',
 };
 
 export const ALLOCATION_STATUS_COLORS: Record<AllocationStatus, string> = {
@@ -84,10 +102,18 @@ export const ALLOCATION_STATUS_COLORS: Record<AllocationStatus, string> = {
   cancelled: 'badge-neutral',
 };
 
-export const CONFLICT_STATUS_COLORS: Record<ConflictStatus, string> = {
+export const CONFLICT_STATUS_COLORS: Record<string, string> = {
   open: 'badge-danger',
   resolved: 'badge-success',
   escalated: 'badge-warning',
+  auto_resolved: 'badge-primary',
+};
+
+export const ALLOCATION_METHOD_LABELS: Record<string, { label: string; color: string }> = {
+  auto: { label: 'Auto-Allocated', color: 'badge-success' },
+  fcfs_tiebreak: { label: 'FCFS Tiebreak', color: 'badge-primary' },
+  conflict_resolved: { label: 'Conflict Resolved', color: 'badge-warning' },
+  admin_override: { label: 'Admin Override', color: 'badge-neutral' },
 };
 
 export const INDIAN_STATES = [

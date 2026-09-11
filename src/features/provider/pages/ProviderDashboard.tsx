@@ -34,7 +34,7 @@ const PIE_COLORS = ['#0F766E', '#14B8A6', '#22C55E', '#E2E8F0', '#F59E0B'];
 export default function ProviderDashboard() {
   const dispatch = useAppDispatch();
   const { user } = useAppSelector(s => s.auth);
-  const { profile, resources, allocations, stats, isLoading } = useAppSelector(s => s.provider);
+  const { profile, resources, allocations, requests, stats, isLoading } = useAppSelector(s => s.provider);
 
   useEffect(() => {
     if (user?.id) {
@@ -148,7 +148,7 @@ export default function ProviderDashboard() {
                     <td className="font-medium">{r.name}</td>
                     <td>
                       <span className="flex items-center gap-1.5">
-                        <span>{RESOURCE_CATEGORY_ICONS[r.category]}</span>
+                        <span>{RESOURCE_CATEGORY_ICONS[r.category as keyof typeof RESOURCE_CATEGORY_ICONS] || '📦'}</span>
                         <span className="text-text-muted capitalize">{r.category.replace('_', ' ')}</span>
                       </span>
                     </td>
@@ -158,12 +158,85 @@ export default function ProviderDashboard() {
                       <StatusBadge
                         status={r.status}
                         type="custom"
-                        label={RESOURCE_STATUS_LABELS[r.status]}
+                        label={RESOURCE_STATUS_LABELS[r.status as keyof typeof RESOURCE_STATUS_LABELS] || r.status}
                         customClass={r.status === 'available' ? 'badge badge-success' : r.status === 'maintenance' ? 'badge badge-warning' : r.status === 'allocated' ? 'badge badge-info' : 'badge badge-neutral'}
                       />
                     </td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Requests / Resource Usage */}
+        <div className="card p-5">
+          <div className="section-header">
+            <div>
+              <h2 className="section-title">📋 Requests / Resource Usage</h2>
+              <p className="text-xs text-text-muted mt-0.5">Incoming farmer resource requests for your organization</p>
+            </div>
+            <span className="badge badge-primary">{requests.length} Request{requests.length !== 1 ? 's' : ''}</span>
+          </div>
+          {requests.length === 0 ? (
+            <div className="text-center py-8 text-text-muted">
+              <div className="text-3xl mb-2">📋</div>
+              <p className="text-sm">No incoming requests yet</p>
+              <p className="text-xs mt-1">When farmers request your resources, they will appear here automatically.</p>
+            </div>
+          ) : (
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Farmer</th>
+                  <th>Resource</th>
+                  <th>Required Date / Window</th>
+                  <th>Priority</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {requests.map(req => {
+                  const farmerName = req.farmerName || req.farmer?.name || 'Farmer';
+                  const resName = req.resourceName || req.resource?.name || req.resource_needed || req.resource_type || 'Tractor';
+                  const startDate = formatDate(req.earliest_start || req.earliestStart || req.created_at || '');
+                  const endDate = formatDate(req.latest_end || req.latestEnd || '');
+                  const score = req.priorityScore ?? req.priority_score;
+
+                  return (
+                    <tr key={req.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="font-semibold text-text-primary">
+                        <div className="flex items-center gap-2">
+                          <span className="w-7 h-7 rounded-full bg-teal-100 text-teal-800 flex items-center justify-center text-xs font-bold">
+                            {farmerName[0]}
+                          </span>
+                          <div>
+                            <div>{farmerName}</div>
+                            {req.farmer?.village && (
+                              <div className="text-xs text-text-muted font-normal">{req.farmer.village}, {req.farmer.district}</div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="font-medium text-text-primary">{resName}</div>
+                        <div className="text-xs text-text-muted capitalize">{(req.resource_type || req.resourceType || '').replace('_', ' ')} · {req.duration_days || req.durationDays || 1} day(s)</div>
+                      </td>
+                      <td className="text-xs text-text-muted">
+                        <div className="font-medium text-text-primary">{startDate}</div>
+                        <div>to {endDate}</div>
+                      </td>
+                      <td>
+                        {score !== undefined && score !== null ? (
+                          <span className="font-bold text-primary-700">{score}/100</span>
+                        ) : '—'}
+                      </td>
+                      <td>
+                        <StatusBadge status={req.status} />
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -182,11 +255,11 @@ export default function ProviderDashboard() {
               {allocations.map(a => (
                 <div key={a.id} className="flex items-center gap-4 p-3 bg-slate-50 rounded-lg border border-border">
                   <div className="flex-1">
-                    <div className="text-sm font-semibold">{a.farmerName}</div>
-                    <div className="text-xs text-text-muted">{a.resourceName}</div>
+                    <div className="text-sm font-semibold">{a.farmerName || a.farmer?.name || 'Farmer'}</div>
+                    <div className="text-xs text-text-muted">{a.resourceName || a.resource?.name || 'Resource'}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs">{formatDate(a.scheduledStart)} → {formatDate(a.scheduledEnd)}</div>
+                    <div className="text-xs">{formatDate(a.scheduledStart || a.scheduled_start || '')} → {formatDate(a.scheduledEnd || a.scheduled_end || '')}</div>
                     <StatusBadge status={a.status} type="allocation" />
                   </div>
                 </div>

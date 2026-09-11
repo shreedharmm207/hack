@@ -74,8 +74,8 @@ export default function AuditLog() {
                     </td>
                     <td>
                       <div className="text-xs">
-                        <div className="font-medium">{log.entityType}</div>
-                        <div className="text-text-muted font-mono">{log.entityId.slice(0, 8)}...</div>
+                        <div className="font-medium">{log.entityType || log.entity_type}</div>
+                        <div className="text-text-muted font-mono">{(log.entityId || log.entity_id || '').slice(0, 8)}...</div>
                       </div>
                     </td>
                     <td className="max-w-64">
@@ -84,15 +84,15 @@ export default function AuditLog() {
                     <td>
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
-                          {log.adminName[0].toUpperCase()}
+                          {(log.adminName || log.actor_name || 'A')[0].toUpperCase()}
                         </div>
-                        <span className="text-sm">{log.adminName}</span>
+                        <span className="text-sm">{log.adminName || log.actor_name || 'Admin'}</span>
                       </div>
                     </td>
                     <td>
                       <div className="text-xs">
-                        <div className="text-text-primary">{formatDateTime(log.createdAt)}</div>
-                        <div className="text-text-muted">{timeAgo(log.createdAt)}</div>
+                        <div className="text-text-primary">{formatDateTime(log.createdAt || log.created_at || '')}</div>
+                        <div className="text-text-muted">{timeAgo(log.createdAt || log.created_at || '')}</div>
                       </div>
                     </td>
                   </tr>

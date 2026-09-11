@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useAppDispatch, useAppSelector } from '../../../app/hooks';
 import { loadFarmerData, updateProfile } from '../farmerSlice';
@@ -17,7 +18,7 @@ const FARMER_NAV = [
 export default function FarmerProfile() {
   const dispatch = useAppDispatch();
   const { user } = useAppSelector(s => s.auth);
-  const { profile, isLoading } = useAppSelector(s => s.farmer);
+  const { profile, requests, isLoading } = useAppSelector(s => s.farmer);
   const [saved, setSaved] = React.useState(false);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<Farmer>();
@@ -27,7 +28,16 @@ export default function FarmerProfile() {
   }, [user]);
 
   useEffect(() => {
-    if (profile) reset(profile);
+    if (profile) reset({
+      ...profile,
+      mobile: profile.mobile || profile.phone || '',
+      village: profile.village || '',
+      district: profile.district || '',
+      state: profile.state || '',
+      primaryCrop: profile.primaryCrop || profile.primary_crop || '',
+      cropStage: (profile.cropStage || profile.crop_stage || 'sowing') as CropStage,
+      farmSizeAcres: profile.farmSizeAcres || profile.farm_size_acres || 0,
+    } as any);
   }, [profile]);
 
   const onSubmit = (data: Farmer) => {
@@ -131,6 +141,49 @@ export default function FarmerProfile() {
             )}
           </div>
         </form>
+
+        {/* My Requests Section */}
+        <div className="card p-5 mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="section-title">📋 My Requests</h2>
+              <p className="text-xs text-text-muted mt-0.5">Your submitted resource requests in the database</p>
+            </div>
+            <Link to="/farmer/requests" className="text-xs text-primary-700 hover:underline font-semibold">
+              View All ({requests.length}) →
+            </Link>
+          </div>
+
+          {requests.length === 0 ? (
+            <div className="text-center py-6 text-text-muted text-sm">
+              <p>No resource requests created yet.</p>
+              <Link to="/farmer/request" className="btn-primary btn-sm mt-3 inline-block">Create New Request</Link>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {requests.slice(0, 3).map(r => (
+                <div key={r.id} className="p-3 bg-slate-50 border border-border rounded-lg flex items-center justify-between">
+                  <div>
+                    <div className="font-semibold text-sm text-text-primary">
+                      {(r as any).resourceName || r.resource_needed || r.resource_type || 'Resource'}
+                    </div>
+                    <div className="text-xs text-text-muted mt-0.5">
+                      {(r as any).orgName || (r as any).organization?.org_name || 'Kaveri Agri Cooperative'} · {r.created_at ? r.created_at.split('T')[0] : 'Today'}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs px-2 py-0.5 rounded font-semibold bg-teal-50 text-teal-700 border border-teal-200 uppercase">
+                      {r.status}
+                    </span>
+                    {r.priority_score && (
+                      <div className="text-xs font-bold text-primary-700 mt-1">{r.priority_score}/100</div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </SidebarLayout>
   );

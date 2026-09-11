@@ -34,12 +34,12 @@ export default function UserManagement() {
     dispatch(approveProvider({ providerId, adminId: user?.id || 'admin', adminName: user?.email?.split('@')[0] || 'Admin' }));
   };
 
-  const filteredFarmers = farmers.filter(f =>
-    filter === '' || f.name.toLowerCase().includes(filter.toLowerCase()) ||
-    f.district.toLowerCase().includes(filter.toLowerCase())
+  const filteredFarmers = (farmers || []).filter((f: any) =>
+    filter === '' || (f.name || '').toLowerCase().includes(filter.toLowerCase()) ||
+    (f.district || '').toLowerCase().includes(filter.toLowerCase())
   );
-  const filteredProviders = providers.filter(p =>
-    filter === '' || p.orgName.toLowerCase().includes(filter.toLowerCase())
+  const filteredProviders = (providers || []).filter((p: any) =>
+    filter === '' || (p.orgName || p.org_name || '').toLowerCase().includes(filter.toLowerCase())
   );
 
   return (
@@ -88,19 +88,19 @@ export default function UserManagement() {
                 </tr>
               </thead>
               <tbody>
-                {filteredFarmers.map(f => (
+                {(filteredFarmers || []).map((f: any) => (
                   <tr key={f.id}>
                     <td>
                       <div className="font-medium">{f.name}</div>
-                      <div className="text-xs text-text-muted">{f.mobile}</div>
+                      <div className="text-xs text-text-muted">{f.mobile || f.phone}</div>
                     </td>
-                    <td className="text-text-muted">{f.village}, {f.district}, {f.state}</td>
-                    <td>{f.farmSize} acres</td>
-                    <td>{f.cropType || '—'}</td>
-                    <td><span className="badge badge-primary capitalize">{f.cropStage}</span></td>
+                    <td className="text-text-muted">{f.village || ''}, {f.district || ''}, {f.state || ''}</td>
+                    <td>{f.farmSize || f.farm_size_acres || 0} acres</td>
+                    <td>{f.cropType || f.primary_crop || '—'}</td>
+                    <td><span className="badge badge-primary capitalize">{f.cropStage || f.crop_stage || '—'}</span></td>
                     <td>
                       <button
-                        onClick={() => handleSuspend(f.userId)}
+                        onClick={() => handleSuspend(f.userId || f.user_id)}
                         className="btn btn-sm btn-danger"
                       >
                         Suspend
@@ -130,28 +130,28 @@ export default function UserManagement() {
                 </tr>
               </thead>
               <tbody>
-                {filteredProviders.map(p => (
+                {(filteredProviders || []).map((p: any) => (
                   <tr key={p.id}>
                     <td>
-                      <div className="font-medium">{p.orgName}</div>
-                      <div className="text-xs text-text-muted">{p.contactPerson}</div>
+                      <div className="font-medium">{p.orgName || p.org_name}</div>
+                      <div className="text-xs text-text-muted">{p.contactPerson || p.contact_person}</div>
                     </td>
-                    <td className="text-text-muted">{PROVIDER_TYPES[p.providerType]}</td>
-                    <td className="text-text-muted">{p.contactNumber}</td>
-                    <td className="text-text-muted text-xs max-w-32">{p.operationalRegion}</td>
+                    <td className="text-text-muted">{PROVIDER_TYPES[(p.providerType || p.orgType || p.org_type) as keyof typeof PROVIDER_TYPES] || p.org_type || 'Provider'}</td>
+                    <td className="text-text-muted">{p.contactNumber || p.contact_number}</td>
+                    <td className="text-text-muted text-xs max-w-32">{p.operationalRegion || p.operational_region}</td>
                     <td>
-                      <span className={`badge ${p.isApproved ? 'badge-success' : 'badge-warning'}`}>
-                        {p.isApproved ? 'Approved' : 'Pending'}
+                      <span className={`badge ${p.isApproved || p.is_approved ? 'badge-success' : 'badge-warning'}`}>
+                        {p.isApproved || p.is_approved ? 'Approved' : 'Pending'}
                       </span>
                     </td>
                     <td>
                       <div className="flex gap-2">
-                        {!p.isApproved && (
+                        {!(p.isApproved || p.is_approved) && (
                           <button onClick={() => handleApprove(p.id)} className="btn btn-sm bg-success text-white hover:bg-green-700">
                             Approve
                           </button>
                         )}
-                        <button onClick={() => handleSuspend(p.userId)} className="btn btn-sm btn-danger">
+                        <button onClick={() => handleSuspend(p.userId || p.user_id)} className="btn btn-sm btn-danger">
                           Suspend
                         </button>
                       </div>
