@@ -160,7 +160,7 @@ const initialState: FarmerState = {
 export const loadFarmerData = createAsyncThunk(
   'farmer/loadData',
   async (userId: string, { rejectWithValue }) => {
-    // Load profile
+    // ── Step 1: Load profile by user_id ───────────────────────────────────
     let profile: any = null;
     const { data: dbProfile } = await (supabase
       .from('farmers') as any)
@@ -171,40 +171,61 @@ export const loadFarmerData = createAsyncThunk(
     if (dbProfile) {
       profile = dbProfile;
     } else {
-      // Try to find any existing farmer in DB
-      const { data: anyFarmer } = await (supabase
-        .from('farmers') as any)
-        .select('*')
-        .limit(1)
-        .maybeSingle();
+      // New user — auto-create a minimal farmer profile so requests are
+      // always queried with the CORRECT farmer ID (this user's ID)
+      const newProfileData = {
+        user_id: userId,
+        name: 'New Farmer',
+        email: '',
+        phone: null,
+        village: null,
+        district: null,
+        state: 'Karnataka',
+        lat: 12.5222,
+        lng: 76.8978,
+        farm_size_acres: 0,
+        primary_crop: null,
+        crop_stage: 'vegetative',
+        allocation_attempts: 0,
+        successful_allocations: 0,
+        consecutive_losses: 0,
+        waiting_started_at: null,
+      };
 
-      if (anyFarmer) {
-        profile = anyFarmer;
+      const { data: created, error: createError } = await (supabase
+        .from('farmers') as any)
+        .insert(newProfileData)
+        .select()
+        .single();
+
+      if (created && !createError) {
+        profile = created;
       } else {
-        // Fallback default Karnataka farmer profile
+        // DB insert failed (e.g. RLS / network) — use in-memory placeholder
+        // IMPORTANT: use userId as the id so request queries use the correct key
         profile = {
-          id: userId || '11111111-1111-1111-1111-111111111111',
-          user_id: userId || '11111111-1111-1111-1111-111111111111',
-          name: 'Ramesh Patel',
-          email: 'farmer@farmgrid.demo',
-          phone: '+91 98765 43210',
-          village: 'Mandya Rural',
-          district: 'Mandya',
+          id: userId,
+          user_id: userId,
+          name: 'Farmer',
+          email: '',
+          phone: null,
+          village: null,
+          district: null,
           state: 'Karnataka',
           lat: 12.5222,
           lng: 76.8978,
-          farm_size_acres: 4.5,
-          primary_crop: 'Paddy',
-          crop_stage: 'harvesting',
-          allocation_attempts: 4,
-          successful_allocations: 3,
+          farm_size_acres: 0,
+          primary_crop: null,
+          crop_stage: 'vegetative',
+          allocation_attempts: 0,
+          successful_allocations: 0,
           consecutive_losses: 0,
           waiting_started_at: null,
         };
       }
     }
 
-    // Load requests with joins
+    // ── Step 2: Load requests — always use THIS user's farmer id ──────────
     let requests: any[] = [];
     const { data: dbRequests } = await (supabase
       .from('requests') as any)
@@ -219,6 +240,7 @@ export const loadFarmerData = createAsyncThunk(
     if (dbRequests && dbRequests.length > 0) {
       requests = dbRequests;
     }
+
 
     // Load allocations with joins
     let allocations: any[] = [];
@@ -285,9 +307,12 @@ export const loadFarmerData = createAsyncThunk(
       allocationMethod: a.allocation_method,
     })) as FarmerAllocation[];
 
+    // ─── Compute stats from ACTUAL status values stored in DB ──────────────
+    // Status values used in DB: submitted, processing, scheduled, waitlisted,
+    // conflict, disrupted, rescheduled, completed, cancelled, manual_review
     const stats: FarmerStats = {
-      activeRequests: reqs.filter(r => ['submitted','validating','pending_conflict'].includes(r.status)).length,
-      scheduledRequests: reqs.filter(r => ['allocated','confirmed'].includes(r.status)).length,
+      activeRequests:    reqs.filter(r => ['submitted', 'processing', 'conflict', 'manual_review', 'disrupted'].includes(r.status)).length,
+      scheduledRequests: reqs.filter(r => ['scheduled', 'rescheduled', 'active'].includes(r.status)).length,
       waitlistedRequests: reqs.filter(r => r.status === 'waitlisted').length,
       completedRequests: reqs.filter(r => r.status === 'completed').length,
       totalAllocations: allocs.length,
@@ -542,12 +567,14 @@ const farmerSlice = createSlice({
         const idx = s.requests.findIndex(r => r.id === a.payload.request.id);
         if (idx >= 0) s.requests[idx] = a.payload.request;
         else s.requests.unshift(a.payload.request);
-        // Update stats
-        if (s.stats) {
-          const status = a.payload.request.status;
-          if (['allocated','confirmed'].includes(status)) s.stats.scheduledRequests++;
-          else if (status === 'waitlisted') s.stats.waitlistedRequests++;
-        }
+        // Recompute stats from full request list (prevents stale/wrong manual counting)
+        s.stats = {
+          activeRequests:    s.requests.filter(r => ['submitted', 'processing', 'conflict', 'manual_review', 'disrupted'].includes(r.status)).length,
+          scheduledRequests: s.requests.filter(r => ['scheduled', 'rescheduled', 'active'].includes(r.status)).length,
+          waitlistedRequests: s.requests.filter(r => r.status === 'waitlisted').length,
+          completedRequests:  s.requests.filter(r => r.status === 'completed').length,
+          totalAllocations:   s.allocations.length,
+        };
       })
       .addCase(submitRequest.rejected, (s, a) => {
         s.isLoading = false;
@@ -557,6 +584,14 @@ const farmerSlice = createSlice({
       .addCase(cancelRequest.fulfilled, (s, a) => {
         const idx = s.requests.findIndex(r => r.id === a.payload);
         if (idx >= 0) s.requests[idx].status = 'cancelled';
+        // Recompute stats so dashboard counts stay correct
+        s.stats = {
+          activeRequests:    s.requests.filter(r => ['submitted', 'processing', 'conflict', 'manual_review', 'disrupted'].includes(r.status)).length,
+          scheduledRequests: s.requests.filter(r => ['scheduled', 'rescheduled', 'active'].includes(r.status)).length,
+          waitlistedRequests: s.requests.filter(r => r.status === 'waitlisted').length,
+          completedRequests:  s.requests.filter(r => r.status === 'completed').length,
+          totalAllocations:   s.allocations.length,
+        };
       });
   },
 });

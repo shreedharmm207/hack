@@ -129,6 +129,26 @@
       "phone": "999998888",
       "email_verified": true,
       "created_at": "2026-09-11T04:49:47.093Z"
+    },
+    {
+      "id": "usr_1789105626234_hypxk",
+      "email": "ayan321@gmail.com",
+      "password": "ayan321",
+      "role": "farmer",
+      "full_name": "ayaan",
+      "phone": "9876543210",
+      "email_verified": true,
+      "created_at": "2026-09-11T05:47:06.234Z"
+    },
+    {
+      "id": "usr_1789105673087_jp5c2",
+      "email": "mithil321@gmail.com",
+      "password": "mithil321",
+      "role": "farmer",
+      "full_name": "mithil",
+      "phone": "9876543210",
+      "email_verified": true,
+      "created_at": "2026-09-11T05:47:53.087Z"
     }
   ],
   "farmers": [
@@ -340,6 +360,44 @@
       "successful_allocations": 0,
       "consecutive_losses": 0,
       "created_at": "2026-09-11T04:49:47.093Z"
+    },
+    {
+      "id": "f_1789105626234",
+      "user_id": "usr_1789105626234_hypxk",
+      "name": "ayaan",
+      "email": "ayan321@gmail.com",
+      "phone": "9876543210",
+      "village": "sagar",
+      "district": "shimoga",
+      "state": "Karnataka",
+      "lat": 12.5222,
+      "lng": 76.8978,
+      "farm_size_acres": 4.5,
+      "primary_crop": "Paddy",
+      "crop_stage": "harvesting",
+      "allocation_attempts": 0,
+      "successful_allocations": 0,
+      "consecutive_losses": 0,
+      "created_at": "2026-09-11T05:47:06.234Z"
+    },
+    {
+      "id": "f_1789105673087",
+      "user_id": "usr_1789105673087_jp5c2",
+      "name": "mithil",
+      "email": "mithil321@gmail.com",
+      "phone": "9876543210",
+      "village": "sagar",
+      "district": "shimoga",
+      "state": "Karnataka",
+      "lat": 12.5222,
+      "lng": 76.8978,
+      "farm_size_acres": 4.5,
+      "primary_crop": "Paddy",
+      "crop_stage": "harvesting",
+      "allocation_attempts": 0,
+      "successful_allocations": 0,
+      "consecutive_losses": 0,
+      "created_at": "2026-09-11T05:47:53.087Z"
     }
   ],
   "organizations": [
@@ -957,6 +1015,26 @@
   ],
   "conflicts": [],
   "audit_logs": [
+    {
+      "id": "audit_1789105673087",
+      "actor_name": "mithil",
+      "actor_role": "farmer",
+      "action": "USER_REGISTERED_DIRECT",
+      "entity_type": "user",
+      "entity_id": "usr_1789105673087_jp5c2",
+      "details": "User registered and activated directly (offline-ready): mithil321@gmail.com",
+      "created_at": "2026-09-11T05:47:53.087Z"
+    },
+    {
+      "id": "audit_1789105626234",
+      "actor_name": "ayaan",
+      "actor_role": "farmer",
+      "action": "USER_REGISTERED_DIRECT",
+      "entity_type": "user",
+      "entity_id": "usr_1789105626234_hypxk",
+      "details": "User registered and activated directly (offline-ready): ayan321@gmail.com",
+      "created_at": "2026-09-11T05:47:06.234Z"
+    },
     {
       "id": "aud_1789102610536_yxxv",
       "actor_role": "organization",
