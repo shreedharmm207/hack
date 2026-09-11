@@ -9,6 +9,7 @@ import StatusBadge from '../../shared/components/StatusBadge';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
+import WeatherForecastCard from '../../shared/components/WeatherForecastCard';
 import { formatDate, RESOURCE_CATEGORY_ICONS, ALLOCATION_METHOD_LABELS, CROP_STAGES } from '../../../utils/constants';
 
 const FARMER_NAV = [
@@ -99,6 +100,13 @@ export default function FarmerDashboard() {
           <KpiCard title="Active" value={stats?.activeRequests ?? 0} icon="📤" color="info" />
           <KpiCard title="Completed" value={stats?.completedRequests ?? 0} icon="🚜" color="primary" />
         </div>
+
+        {/* ML Weather Forecast & Advisory Engine */}
+        <WeatherForecastCard
+          cropStage={(profile?.cropStage || profile?.crop_stage || 'harvesting') as any}
+          lat={profile?.lat || 12.5222}
+          lng={profile?.lng || 76.8978}
+        />
 
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Request history chart */}

@@ -316,54 +316,85 @@ export function processResourceRequest(requestId: string): AllocationResult {
   const losers = scored.slice(1);
   const isFcfsTiebreak = winner.score === (scored[1]?.score ?? -1);
 
-  // Record conflict
-  const conflict: Conflict = {
-    id: 'c_' + generateId(),
-    resourceId: feasibleResources[0].id,
-    resourceName: feasibleResources[0].name,
-    requestIds: allCompeting.map(r => r.id),
-    rankedRequests: scored.map((s, i) => ({
-      requestId: s.request.id,
-      farmerName: s.request.farmerName,
-      priorityScore: s.score,
-      rank: i + 1,
-    })),
-    scoreDelta: scored.length > 1 ? Math.abs(scored[0].score - scored[1].score) : 0,
-    status: 'auto_resolved',
-    resolution: isFcfsTiebreak ? 'auto_fcfs' : 'auto_priority',
-    resolvedBy: 'FarmGrid Engine',
-    resolvedAt: new Date().toISOString(),
-    autoResolved: true,
-    winnerRequestId: winner.request.id,
-    createdAt: new Date().toISOString(),
-  };
-  MOCK_CONFLICTS.push(conflict);
+  // Best resource assigned to the priority winner
+  const bestForWinner = feasibleResources[0];
 
-  // Waitlist losers
+  // Pool of remaining candidate resources to try as alternatives
+  const availableAlternatives = feasibleResources.filter(r => r.id !== bestForWinner.id);
+
+  // Track alternative allocations made during conflict resolution
+  let alternativeAllocatedToCurrent = false;
+  let alternativeResourceForCurrent: Resource | null = null;
+  let lastAssignedAlternativeName: string | undefined = undefined;
+  let lastAssignedAlternativeId: string | undefined = undefined;
+
+  // Process all competing runner-up requests: TRY ANOTHER RESOURCE first!
   losers.forEach(loser => {
     const loserRequest = MOCK_REQUESTS.find(r => r.id === loser.request.id);
-    if (loserRequest) {
-      loserRequest.status = 'waitlisted';
-      loserRequest.waitlistReason = isFcfsTiebreak
-        ? `Both requests had the same priority score of ${loser.score}. ${winner.request.farmerName} was selected because their request was submitted earlier (${new Date(winner.request.createdAt).toLocaleTimeString()} vs ${new Date(loserRequest.createdAt).toLocaleTimeString()}).`
-        : `Higher priority request won (${winner.score} vs ${loser.score}). ${winner.pb.explanation}`;
+    if (!loserRequest) return;
+
+    const loserWindow = computeScheduledWindow(loserRequest);
+    const altIdx = availableAlternatives.findIndex(alt =>
+      isNotDoubleBooked(alt.id, loserWindow.start, loserWindow.end) && isResourceAvailable(alt)
+    );
+
+    if (altIdx >= 0) {
+      // Alternative resource found!
+      const altResource = availableAlternatives.splice(altIdx, 1)[0];
+      lastAssignedAlternativeId = altResource.id;
+      lastAssignedAlternativeName = altResource.name;
+
+      if (loser.request.id === requestId) {
+        alternativeAllocatedToCurrent = true;
+        alternativeResourceForCurrent = altResource;
+      } else {
+        performAllocation(loserRequest, altResource, loser.pb, loserWindow, 'auto_alternative', false, undefined);
+      }
+
+      loserRequest.status = 'scheduled';
+      loserRequest.allocatedResourceId = altResource.id;
+      loserRequest.allocationMethod = 'auto_alternative';
       loserRequest.priorityScore = loser.score;
 
       const loserFarmer = MOCK_FARMERS.find(f => f.id === loserRequest.farmerId);
       if (loserFarmer) {
-        const tieMsg = isFcfsTiebreak
-          ? `Both you and ${winner.request.farmerName} had the same priority score (${loser.score}/100). Their request was submitted earlier.`
-          : `Your score: ${loser.score}/100. ${winner.request.farmerName} scored higher: ${winner.score}/100.`;
+        notifyUser(
+          loserFarmer.userId,
+          '🔄 Alternative Resource Allocated!',
+          `Conflict detected on ${bestForWinner.name} (won by ${winner.request.farmerName}, Priority ${winner.score}). FarmGrid conflict engine automatically found and secured alternative resource: ${altResource.name} (Your Score: ${loser.score}/100)!`,
+          'success'
+        );
 
-        notifyUser(loserFarmer.userId, '⏳ Request Waitlisted',
-          `Your ${loserRequest.resourceType} request was waitlisted. ${tieMsg} Check What-If to explore scenarios.`, 'warning');
+        createAuditEntry(
+          'ALTERNATIVE_RESOURCE_ALLOCATED',
+          'Request',
+          loserRequest.id,
+          `Conflict resolved: ${loserRequest.farmerName} reallocated to alternative unit ${altResource.name}. Priority: ${loser.score}/100.`
+        );
+      }
+    } else {
+      // No alternative available for this specific window → waitlist
+      loserRequest.status = 'waitlisted';
+      loserRequest.waitlistReason = isFcfsTiebreak
+        ? `Both requests had equal priority score (${loser.score}/100). ${winner.request.farmerName} was selected due to earlier submission time. No alternative ${loserRequest.resourceType} available currently.`
+        : `Higher priority request won (${winner.score} vs ${loser.score}). No alternative ${loserRequest.resourceType} currently available in this time slot. Use What-If to explore alternative dates.`;
+      loserRequest.priorityScore = loser.score;
+
+      const loserFarmer = MOCK_FARMERS.find(f => f.id === loserRequest.farmerId);
+      if (loserFarmer) {
+        notifyUser(
+          loserFarmer.userId,
+          '⏳ Request Waitlisted',
+          `Your ${loserRequest.resourceType} request was waitlisted. ${loserRequest.waitlistReason}`,
+          'warning'
+        );
 
         MOCK_FAIRNESS_EVENTS.push({
           id: 'fe_' + generateId(),
           farmerId: loserFarmer.id,
           timestamp: new Date().toISOString(),
           eventType: 'allocation_failed',
-          details: loserRequest.waitlistReason || 'Waitlisted due to competing request.',
+          details: loserRequest.waitlistReason,
           priorityScore: loser.score,
           winnerScore: winner.score,
           winnerFarmerName: winner.request.farmerName,
@@ -374,58 +405,86 @@ export function processResourceRequest(requestId: string): AllocationResult {
     }
   });
 
-  // Allocate winner
+  // Record conflict in database/mock store with full transparency
+  const hasAlternativeResolution = !!lastAssignedAlternativeId;
+  const conflict: Conflict = {
+    id: 'c_' + generateId(),
+    resourceId: bestForWinner.id,
+    resourceName: bestForWinner.name,
+    requestIds: allCompeting.map(r => r.id),
+    rankedRequests: scored.map((s, i) => ({
+      requestId: s.request.id,
+      farmerName: s.request.farmerName,
+      priorityScore: s.score,
+      rank: i + 1,
+    })),
+    scoreDelta: scored.length > 1 ? Math.abs(scored[0].score - scored[1].score) : 0,
+    status: 'auto_resolved',
+    resolution: hasAlternativeResolution ? 'auto_alternative' : (isFcfsTiebreak ? 'auto_fcfs' : 'auto_priority'),
+    resolvedBy: 'FarmGrid Conflict Engine',
+    resolvedAt: new Date().toISOString(),
+    autoResolved: true,
+    winnerRequestId: winner.request.id,
+    alternativeResourceId: lastAssignedAlternativeId,
+    alternativeResourceName: lastAssignedAlternativeName,
+    adminNote: hasAlternativeResolution
+      ? `Conflict automatically resolved: ${winner.request.farmerName} allocated primary unit (${bestForWinner.name}). Alternative compatible unit (${lastAssignedAlternativeName}) automatically allocated to competing farmer.`
+      : `Conflict resolved via priority ranking (${winner.score} vs ${scored[1]?.score || 0}).`,
+    createdAt: new Date().toISOString(),
+  };
+  MOCK_CONFLICTS.push(conflict);
+
+  // Format tiebreak explanation
   const tiebreakExpl = isFcfsTiebreak
     ? `Both requests had the same priority score of ${winner.score}. ${winner.request.farmerName} was selected because their request was submitted earlier (${new Date(winner.request.createdAt).toLocaleTimeString('en-IN')}).`
     : undefined;
 
-  // Use best feasible resource for winner
-  const bestForWinner = feasibleResources[0];
-
+  // If current request won:
   if (winner.request.id === requestId) {
     return performAllocation(request, bestForWinner, winner.pb, window, isFcfsTiebreak ? 'fcfs_tiebreak' : 'auto', isFcfsTiebreak, tiebreakExpl);
-  } else {
-    // Winner is a competing request, not the current one
-    request.status = 'waitlisted';
-    const myLoserData = scored.find(s => s.request.id === requestId);
-    request.waitlistReason = isFcfsTiebreak
-      ? `Both requests had equal priority score (${myLoserData?.score ?? 0}). ${winner.request.farmerName} was selected because they submitted earlier.`
-      : `Lower priority score (${myLoserData?.score ?? 0} vs ${winner.score}). ${winner.pb.explanation}`;
-    request.priorityScore = myLoserData?.score ?? myPb.total;
+  }
 
-    // Allocate winner's request
-    const winnerReq = MOCK_REQUESTS.find(r => r.id === winner.request.id);
-    if (winnerReq) {
-      performAllocation(winnerReq, bestForWinner, winner.pb, computeScheduledWindow(winnerReq),
-        isFcfsTiebreak ? 'fcfs_tiebreak' : 'auto', isFcfsTiebreak, tiebreakExpl);
-    }
-
-    const farmer = MOCK_FARMERS.find(f => f.id === request.farmerId);
-    if (farmer) {
-      notifyUser(farmer.userId, '⏳ Request Waitlisted',
-        `Your ${request.resourceType} request was waitlisted. ${request.waitlistReason}`, 'warning');
-      MOCK_FAIRNESS_EVENTS.push({
-        id: 'fe_' + generateId(),
-        farmerId: farmer.id,
-        timestamp: new Date().toISOString(),
-        eventType: 'allocation_failed',
-        details: request.waitlistReason || 'Waitlisted due to competing request.',
-        priorityScore: request.priorityScore,
-        winnerScore: winner.score,
-        winnerFarmerName: winner.request.farmerName,
-      });
-      recordAllocationLoss(farmer.id);
-    }
-
+  // Current request was a runner-up: Did it receive an alternative resource?
+  if (alternativeAllocatedToCurrent && alternativeResourceForCurrent) {
+    const altRes: Resource = alternativeResourceForCurrent;
+    const altResult = performAllocation(
+      request,
+      altRes,
+      myPb,
+      window,
+      'auto_alternative',
+      false,
+      `Conflict detected on ${bestForWinner.name}. Successfully reallocated to alternative unit: ${altRes.name}.`
+    );
     return {
-      success: false,
-      method: 'waitlisted',
-      requestId,
-      conflictId: conflict.id,
-      message: request.waitlistReason || 'Waitlisted due to competing request.',
-      tiebreakExplanation: isFcfsTiebreak ? tiebreakExpl : undefined,
+      ...altResult,
+      message: `⚠️ Conflict detected on ${bestForWinner.name} (Prioritized ${winner.request.farmerName}, Score: ${winner.score} vs ${myPb.total}). Automatically allocated alternative available resource: ${altRes.name}!`,
     };
   }
+
+  // Current request could not be allocated an alternative:
+  const myLoserData = scored.find(s => s.request.id === requestId);
+  request.status = 'waitlisted';
+  request.waitlistReason = isFcfsTiebreak
+    ? `Both requests had equal priority score (${myLoserData?.score ?? 0}). ${winner.request.farmerName} was selected due to earlier submission. All alternative units currently engaged.`
+    : `Lower priority score (${myLoserData?.score ?? 0} vs ${winner.score}). ${winner.pb.explanation}. All alternative units currently engaged.`;
+  request.priorityScore = myLoserData?.score ?? myPb.total;
+
+  // Allocate winner request if not already done
+  const winnerReq = MOCK_REQUESTS.find(r => r.id === winner.request.id);
+  if (winnerReq && winnerReq.status !== 'scheduled') {
+    performAllocation(winnerReq, bestForWinner, winner.pb, computeScheduledWindow(winnerReq),
+      isFcfsTiebreak ? 'fcfs_tiebreak' : 'auto', isFcfsTiebreak, tiebreakExpl);
+  }
+
+  return {
+    success: false,
+    method: 'waitlisted',
+    requestId,
+    conflictId: conflict.id,
+    message: request.waitlistReason,
+    tiebreakExplanation: isFcfsTiebreak ? tiebreakExpl : undefined,
+  };
 }
 
 // ─── Perform Atomic Allocation ────────────────────────────────────────────────

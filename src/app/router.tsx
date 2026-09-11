@@ -6,6 +6,7 @@ import ProtectedRoute from '../features/shared/components/ProtectedRoute';
 // Auth
 import LoginPage from '../features/auth/LoginPage';
 import RegisterPage from '../features/auth/RegisterPage';
+import VerifyEmailPage from '../features/auth/VerifyEmailPage';
 import AuthCallbackPage from '../features/auth/AuthCallbackPage';
 
 // Lazy-load pages for better performance
@@ -152,7 +153,9 @@ export default function AppRouter() {
           {/* Landing */}
           <Route path="/" element={<HomePage />} />
 
-          {/* Email Confirmation Callback */}
+          {/* Email Confirmation Callback & Verification */}
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/auth/verify-email" element={<VerifyEmailPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
           {/* Farmer Auth */}

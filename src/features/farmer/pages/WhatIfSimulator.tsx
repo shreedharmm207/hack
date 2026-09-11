@@ -5,6 +5,8 @@ import SidebarLayout from '../../shared/layouts/SidebarLayout';
 import { calculatePriority } from '../../../utils/priorityEngine';
 import { MOCK_REQUESTS, MOCK_ALLOCATIONS } from '../../../services/mockData';
 import type { ResourceRequest, PriorityBreakdown, CropStage, UrgencyLevel } from '../../../types';
+import { predictWeatherRisk } from '../../../utils/weatherMlEngine';
+import WeatherForecastCard from '../../shared/components/WeatherForecastCard';
 
 const FARMER_NAV = [
   { path: '/farmer/dashboard', label: 'Dashboard', icon: '📊' },
@@ -69,6 +71,7 @@ export default function WhatIfSimulator() {
   const { profile } = useAppSelector(s => s.farmer);
 
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+  const [timeTravelDays, setTimeTravelDays] = useState<number>(0);
   const [simFactors, setSimFactors] = useState<SimulatedFactors>({ urgencyLevel: 'medium', cropStage: 'vegetative', daysUntilDeadline: 5 });
   const [simulatedScore, setSimulatedScore] = useState<PriorityBreakdown | null>(null);
   const [originalScore, setOriginalScore] = useState<PriorityBreakdown | null>(null);
@@ -78,48 +81,66 @@ export default function WhatIfSimulator() {
     if (user?.id && !profile) dispatch(loadFarmerData(user.id));
   }, [user]);
 
-  const waitlistedRequests = profile
-    ? MOCK_REQUESTS.filter(r => r.farmerId === profile.id && (r.status === 'waitlisted' || r.status === 'conflict'))
-    : [];
-
   const allRequests = profile
     ? MOCK_REQUESTS.filter(r => r.farmerId === profile.id)
-    : [];
+    : MOCK_REQUESTS;
 
-  const selectedRequest = MOCK_REQUESTS.find(r => r.id === selectedRequestId);
+  const selectedRequest = MOCK_REQUESTS.find(r => r.id === selectedRequestId) || allRequests[0] || null;
 
   useEffect(() => {
     if (!selectedRequest) return;
-    // Calculate original score
+    if (!selectedRequestId) setSelectedRequestId(selectedRequest.id);
+
     const orig = calculatePriority(selectedRequest);
     setOriginalScore(orig);
     setSimFactors({
       urgencyLevel: selectedRequest.urgencyLevel,
       cropStage: selectedRequest.cropStage,
-      daysUntilDeadline: Math.max(0, Math.ceil((new Date(selectedRequest.latestEnd).getTime() - Date.now()) / 86400000)),
+      daysUntilDeadline: Math.max(1, Math.ceil((new Date(selectedRequest.latestEnd).getTime() - Date.now()) / 86400000)),
     });
-    // Find winner score from conflicts
-    const conflict = (MOCK_REQUESTS).find(r =>
+
+    const conflict = MOCK_REQUESTS.find(r =>
       r.resourceType === selectedRequest.resourceType &&
       r.status === 'scheduled' &&
       r.farmerId !== profile?.id
     );
     if (conflict) setWinnerScore(conflict.priorityScore || null);
-  }, [selectedRequestId]);
+  }, [selectedRequestId, selectedRequest?.id]);
 
+  // Recalculate hypothetical score whenever factors OR time-travel changes
   useEffect(() => {
     if (!selectedRequest) return;
-    // Create hypothetical request — NEVER modifies real data
+
+    // Simulate crop stage progression as time travels forward
+    let advancedCropStage: CropStage = simFactors.cropStage;
+    if (timeTravelDays >= 7) {
+      if (simFactors.cropStage === 'seedling') advancedCropStage = 'vegetative';
+      else if (simFactors.cropStage === 'vegetative') advancedCropStage = 'flowering';
+      else if (simFactors.cropStage === 'flowering') advancedCropStage = 'harvesting';
+    } else if (timeTravelDays >= 3) {
+      if (simFactors.cropStage === 'flowering') advancedCropStage = 'harvesting';
+    }
+
+    // Simulated date
+    const simulatedDate = new Date(Date.now() + timeTravelDays * 86400000);
+    // As time travels forward, deadline approaches or wait time accumulates
+    const adjustedDeadlineDays = Math.max(1, simFactors.daysUntilDeadline - timeTravelDays);
+    const hypotheticalLatestEnd = new Date(simulatedDate.getTime() + adjustedDeadlineDays * 86400000).toISOString();
+    const hypotheticalCreated = new Date(Date.now() - (timeTravelDays + 1) * 86400000).toISOString();
+
     const hypothetical: ResourceRequest = {
       ...selectedRequest,
       id: 'whatif_preview',
       urgencyLevel: simFactors.urgencyLevel,
-      cropStage: simFactors.cropStage,
-      latestEnd: new Date(Date.now() + simFactors.daysUntilDeadline * 86400000).toISOString(),
+      cropStage: advancedCropStage,
+      earliestStart: simulatedDate.toISOString(),
+      latestEnd: hypotheticalLatestEnd,
+      createdAt: hypotheticalCreated,
     };
+
     const simulated = calculatePriority(hypothetical);
     setSimulatedScore(simulated);
-  }, [simFactors, selectedRequest]);
+  }, [simFactors, timeTravelDays, selectedRequest]);
 
   const scoreDelta = simulatedScore && originalScore ? simulatedScore.total - originalScore.total : 0;
   const wouldWin = winnerScore !== null && simulatedScore !== null && simulatedScore.total > winnerScore;
@@ -132,6 +153,104 @@ export default function WhatIfSimulator() {
           <p className="text-text-muted text-sm mt-1">
             Explore how changing your request factors would affect your priority score. Changes here are simulations only — they never modify your real request.
           </p>
+        </div>
+
+        {/* ─── TIME TRAVEL TIMELINE CONTROLLER ─── */}
+        <div className="card p-5 mb-6 border-2 border-primary-200 bg-gradient-to-r from-teal-50/60 via-sky-50/40 to-purple-50/50">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">⏳</span>
+                <h2 className="text-lg font-bold text-text-primary">Time Travel & Future Scenario Projection</h2>
+                <span className="badge bg-primary-100 text-primary-800 border border-primary-200 text-xs font-bold">
+                  {timeTravelDays === 0 ? 'Current Real-Time' : `Traveling +${timeTravelDays} Day${timeTravelDays > 1 ? 's' : ''} Forward`}
+                </span>
+              </div>
+              <p className="text-xs text-text-muted mt-0.5">
+                Simulate how advancing into the future impacts weather patterns, crop maturity readiness, queue wait times, and equipment availability.
+              </p>
+            </div>
+
+            {/* Quick Presets */}
+            <div className="flex gap-1.5 flex-wrap">
+              {[
+                { days: 0, label: 'Today (Day 0)' },
+                { days: 2, label: '+2 Days' },
+                { days: 4, label: '+4 Days (Storm Alert)' },
+                { days: 7, label: '+7 Days (1 Wk)' },
+                { days: 14, label: '+14 Days (2 Wks)' },
+              ].map(preset => (
+                <button
+                  key={preset.days}
+                  type="button"
+                  onClick={() => setTimeTravelDays(preset.days)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                    timeTravelDays === preset.days
+                      ? 'bg-primary-700 text-white shadow-sm scale-105'
+                      : 'bg-white border border-border text-text-secondary hover:bg-slate-50'
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Timeline Slider */}
+          <div className="space-y-2">
+            <div className="flex justify-between items-center text-xs">
+              <span className="font-semibold text-text-primary">
+                Simulated Calendar Date:{' '}
+                <strong className="text-primary-700 font-bold">
+                  {new Date(Date.now() + timeTravelDays * 86400000).toLocaleDateString('en-IN', {
+                    weekday: 'short',
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
+                </strong>
+              </span>
+              <span className="text-text-muted">Slide to travel up to 14 days forward</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={14}
+              step={1}
+              value={timeTravelDays}
+              onChange={e => setTimeTravelDays(parseInt(e.target.value))}
+              className="w-full h-2.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary-700"
+            />
+            <div className="flex justify-between text-[11px] text-text-muted font-medium">
+              <span>Day 0 (Now)</span>
+              <span>Day 3 (Rain Begins)</span>
+              <span>Day 7 (Clearing)</span>
+              <span>Day 10</span>
+              <span>Day 14 (Future Cycle)</span>
+            </div>
+          </div>
+
+          {/* Time Travel Dynamic Insights */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-3 border-t border-primary-100 text-xs">
+            <div className="bg-white/80 p-2.5 rounded-lg border border-primary-100">
+              <span className="text-text-muted block text-[11px]">🌾 Crop Progression</span>
+              <span className="font-bold text-text-primary">
+                {timeTravelDays >= 7 ? 'Harvest Ready (+20 pts)' : timeTravelDays >= 3 ? 'Flowering / Maturing (+17 pts)' : 'Current Stage'}
+              </span>
+            </div>
+            <div className="bg-white/80 p-2.5 rounded-lg border border-primary-100">
+              <span className="text-text-muted block text-[11px]">⏱️ Queue Wait Boost</span>
+              <span className="font-bold text-text-primary">
+                +{Math.min(15, 3 + Math.floor(timeTravelDays * 1.5))}/15 pts accumulated
+              </span>
+            </div>
+            <div className="bg-white/80 p-2.5 rounded-lg border border-primary-100">
+              <span className="text-text-muted block text-[11px]">⚡ Resource Availability</span>
+              <span className="font-bold text-emerald-700">
+                {timeTravelDays >= 3 ? 'Alternative Units Available' : 'High Contention'}
+              </span>
+            </div>
+          </div>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
@@ -233,6 +352,14 @@ export default function WhatIfSimulator() {
                   </div>
                 </div>
               )}
+
+              {/* ML Weather Forecast & Agricultural Impact */}
+              <WeatherForecastCard
+                cropStage={simFactors.cropStage}
+                resourceCategory={selectedRequest.resourceType}
+                selectedDayOffset={timeTravelDays <= 6 ? timeTravelDays : 6}
+                onSelectDayOffset={offset => setTimeTravelDays(offset)}
+              />
             </div>
           ) : (
             <div className="card p-10 text-center text-text-muted">
@@ -273,6 +400,17 @@ export default function WhatIfSimulator() {
                       ) : (
                         <div className="mt-1 text-xs text-red-700 font-semibold">❌ Still lower than winner</div>
                       )}
+                    </div>
+                  )}
+
+                  {timeTravelDays > 0 && (
+                    <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg text-xs space-y-1">
+                      <div className="font-bold text-purple-900 flex items-center gap-1.5">
+                        <span>🚀</span> Time Travel Scenario (+{timeTravelDays} Days):
+                      </div>
+                      <p className="text-purple-800 leading-relaxed">
+                        At this future date, natural queue progression elevates your waiting factor by +{Math.min(15, 3 + Math.floor(timeTravelDays * 1.5))} pts. Weather forecasting model projects dynamic meteorological risk of {simulatedScore.weatherRisk}/25 pts. Contention is significantly reduced as alternative units become available!
+                      </p>
                     </div>
                   )}
                 </div>

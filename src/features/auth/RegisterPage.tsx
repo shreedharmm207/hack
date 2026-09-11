@@ -41,6 +41,11 @@ export default function RegisterPage({ role }: RegisterPageProps) {
     e.preventDefault();
     setValidationError('');
 
+    const emailClean = form.email.trim().toLowerCase();
+    if (!emailClean.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+      setValidationError('Please enter a valid email address.');
+      return;
+    }
     if (form.password !== form.confirmPassword) {
       setValidationError('Passwords do not match.');
       return;
@@ -51,8 +56,8 @@ export default function RegisterPage({ role }: RegisterPageProps) {
     }
 
     if (role === 'farmer') {
-      await dispatch(registerFarmer({
-        email: form.email.trim(),
+      const result = await dispatch(registerFarmer({
+        email: emailClean,
         password: form.password,
         name: form.name.trim(),
         phone: form.phone,
@@ -60,9 +65,12 @@ export default function RegisterPage({ role }: RegisterPageProps) {
         district: form.district,
         state: form.state,
       }));
+      if (registerFarmer.fulfilled.match(result)) {
+        navigate('/farmer/dashboard', { replace: true });
+      }
     } else {
-      await dispatch(registerOrganization({
-        email: form.email.trim(),
+      const result = await dispatch(registerOrganization({
+        email: emailClean,
         password: form.password,
         orgName: form.orgName.trim(),
         contactPerson: form.contactPerson.trim(),
@@ -71,6 +79,9 @@ export default function RegisterPage({ role }: RegisterPageProps) {
         operationalRegion: form.operationalRegion,
         orgType: form.orgType,
       }));
+      if (registerOrganization.fulfilled.match(result)) {
+        navigate('/organization/dashboard', { replace: true });
+      }
     }
   };
 
@@ -97,9 +108,9 @@ export default function RegisterPage({ role }: RegisterPageProps) {
           </p>
         </div>
         <div className="p-4 bg-white/10 rounded-xl">
-          <p className="text-white/90 text-sm font-semibold mb-1">⚡ Instant Account Access</p>
+          <p className="text-white/90 text-sm font-semibold mb-1">🔐 Secure Email Verification</p>
           <p className="text-white/70 text-xs">
-            Direct registration — no email verification or OTP delay. Create your account and begin using FarmGrid immediately.
+            After registering, you'll receive a 6-digit verification code to activate your account securely.
           </p>
         </div>
       </div>
@@ -128,7 +139,7 @@ export default function RegisterPage({ role }: RegisterPageProps) {
               {role === 'farmer' ? 'Create Farmer Account' : 'Register Organization'}
             </h1>
             <p className="text-text-muted text-sm mt-1">
-              Instant access — create your account and access the platform directly.
+              Enter your details below. We will send a 6-digit verification code to your email.
             </p>
           </div>
 
@@ -244,7 +255,7 @@ export default function RegisterPage({ role }: RegisterPageProps) {
                   </svg>
                   Creating account...
                 </span>
-              ) : `Create Account & Continue`}
+              ) : `Create Account / Sign Up`}
             </button>
           </form>
 

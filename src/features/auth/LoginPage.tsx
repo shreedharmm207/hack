@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
-import { loginWithPassword, clearError, demoLogin } from './authSlice';
+import { loginWithPassword, resendOtp, clearError, demoLogin } from './authSlice';
 import type { UserRole } from './authSlice';
 
 interface LoginPageProps {
@@ -39,7 +39,7 @@ export default function LoginPage({ role }: LoginPageProps) {
   const config = ROLE_CONFIG[role];
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { isLoading, error, user } = useAppSelector(s => s.auth);
+  const { isLoading, error, user, unverifiedLogin } = useAppSelector(s => s.auth);
 
   const [email, setEmail] = useState(role === 'admin' ? 'admin@farmgrid.demo' : '');
   const [password, setPassword] = useState(role === 'admin' ? 'FarmGrid@Admin123' : '');
@@ -211,8 +211,27 @@ export default function LoginPage({ role }: LoginPageProps) {
             </div>
 
             {error && (
-              <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-sm text-danger">
-                {error}
+              <div className={`p-4 rounded-xl text-sm ${unverifiedLogin ? 'bg-amber-50 border border-amber-200 text-amber-900' : 'bg-red-50 border border-red-100 text-danger'}`}>
+                <p className="font-semibold mb-1">{error}</p>
+                {unverifiedLogin && (
+                  <div className="mt-3 pt-3 border-t border-amber-200/80">
+                    <p className="text-xs text-amber-800 mb-2">
+                      An OTP verification is required to activate this account before you can log in.
+                    </p>
+                    <button
+                      type="button"
+                      id="send-verification-otp-again-btn"
+                      onClick={async () => {
+                        const targetEmail = unverifiedLogin.email || email.trim();
+                        await dispatch(resendOtp({ email: targetEmail }));
+                        navigate(`/verify-email?email=${encodeURIComponent(targetEmail)}&role=${role}`);
+                      }}
+                      className="w-full py-2 px-3 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+                    >
+                      <span>✉️</span> Send Verification OTP Again
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 

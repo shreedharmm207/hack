@@ -2,6 +2,7 @@ import { defineConfig, Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 import fs from 'fs'
+import nodemailer from 'nodemailer'
 
 function farmGridDbPlugin(): Plugin {
   const dbPath = path.resolve(__dirname, './data/farmgrid.json');
@@ -73,36 +74,126 @@ function farmGridDbPlugin(): Plugin {
         const cleanUrl = url.split('?')[0];
         const searchParams = new URLSearchParams(url.includes('?') ? url.split('?')[1] : '');
 
-        // ─── AUTH: SIGN UP (NO EMAIL CONFIRMATION REQUIRED) ─────────────────────
+        // Helper to send OTP email
+        const sendOtpEmail = async (toEmail: string, otp: string) => {
+          const subject = 'Verify your FarmGrid account';
+          const text = `Your FarmGrid verification code is: ${otp}\n\nThis code expires in 10 minutes.\nDo not share this code with anyone.`;
+          const html = `
+            <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; rounded-lg: 8px;">
+              <h2 style="color: #0d9488; margin-bottom: 8px;">FarmGrid — Account Verification</h2>
+              <p style="color: #475569; font-size: 14px;">Thank you for registering with FarmGrid. Use the verification code below to activate your account:</p>
+              <div style="background-color: #f0fdfa; border: 1px dashed #0d9488; padding: 16px; text-align: center; border-radius: 8px; margin: 20px 0;">
+                <span style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #0f766e;">${otp}</span>
+              </div>
+              <p style="color: #64748b; font-size: 13px;">This code expires in <strong>10 minutes</strong>.</p>
+              <p style="color: #ef4444; font-size: 12px;">Do not share this code with anyone.</p>
+              <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+              <p style="color: #94a3b8; font-size: 11px; text-align: center;">FarmGrid Agricultural Resource Platform</p>
+            </div>
+          `;
+
+          // Record in sent_emails for audit
+          if (!db.sent_emails) db.sent_emails = [];
+          db.sent_emails.unshift({
+            to: toEmail,
+            subject,
+            otp,
+            sent_at: new Date().toISOString(),
+          });
+
+          // Check for SMTP environment variables
+          const smtpHost = process.env.SMTP_HOST;
+          const smtpPort = Number(process.env.SMTP_PORT) || 587;
+          const smtpUser = process.env.SMTP_USER;
+          const smtpPass = process.env.SMTP_PASS;
+          const smtpFrom = process.env.SMTP_FROM || 'no-reply@farmgrid.agri';
+
+          if (smtpHost && smtpUser && smtpPass) {
+            try {
+              const transporter = nodemailer.createTransport({
+                host: smtpHost,
+                port: smtpPort,
+                secure: smtpPort === 465,
+                auth: { user: smtpUser, pass: smtpPass },
+              });
+              await transporter.sendMail({
+                from: `"FarmGrid" <${smtpFrom}>`,
+                to: toEmail,
+                subject,
+                text,
+                html,
+              });
+              console.log(`[FarmGrid Email] Successfully sent OTP email to ${toEmail} via SMTP`);
+            } catch (smtpErr) {
+              console.error(`[FarmGrid Email] SMTP delivery error:`, smtpErr);
+            }
+          } else {
+            console.log(`\n======================================================`);
+            console.log(`[FarmGrid Email Service] OTP Sent to: ${toEmail}`);
+            console.log(`Subject: ${subject}`);
+            console.log(`Verification Code: ${otp}`);
+            console.log(`Expires in: 10 minutes`);
+            console.log(`(Configure SMTP_HOST, SMTP_USER, SMTP_PASS in .env for external relay)`);
+            console.log(`======================================================\n`);
+          }
+        };
+
+        const maskEmail = (emailStr: string) => {
+          const parts = emailStr.split('@');
+          if (parts.length < 2) return emailStr;
+          const name = parts[0];
+          const domain = parts[1];
+          if (name.length <= 2) return `${name[0]}***@${domain}`;
+          return `${name[0]}***${name[name.length - 1]}@${domain}`;
+        };
+
+        // ─── AUTH: SIGN UP (DIRECT LOGIN — NO OTP REQUIRED — OFFLINE READY) ────
         if (cleanUrl === '/api/auth/signup' && req.method === 'POST') {
           const body = await getBody();
           const { email, password, role, full_name, phone, profile_data } = body;
           const emailLower = (email || '').trim().toLowerCase();
 
-          // Check if user exists
-          const existing = db.profiles.find((p: any) => p.email.toLowerCase() === emailLower);
-          if (existing) {
-            return sendJson({ error: 'User with this email already exists.' }, 400);
+          // 1. Validation
+          if (!emailLower || !emailLower.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+            return sendJson({ error: 'Please enter a valid email address.' }, 400);
+          }
+          if (!password || password.length < 6) {
+            return sendJson({ error: 'Password must be at least 6 characters long.' }, 400);
+          }
+          if (!full_name && !profile_data?.org_name) {
+            return sendJson({ error: 'Please enter your name / organization name.' }, 400);
           }
 
+          // 2. Check if user already exists
+          const existingUser = db.profiles.find((p: any) => p.email.toLowerCase() === emailLower);
+          if (existingUser) {
+            return sendJson({ error: 'An account with this email already exists. Please log in directly.' }, 400);
+          }
+
+          // 3. Immediately create active user profile
           const userId = 'usr_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+          const userRole = role || 'farmer';
+          const userName = full_name || profile_data?.org_name || 'FarmGrid User';
+
           const newProfile = {
             id: userId,
             email: emailLower,
-            password: password || 'Default@123',
-            role: role || 'farmer',
-            full_name: full_name || '',
+            password,
+            role: userRole,
+            full_name: userName,
             phone: phone || '',
+            email_verified: true,
             created_at: new Date().toISOString(),
           };
           db.profiles.push(newProfile);
 
-          if (role === 'farmer') {
+          // 4. Create farmer or organization record
+          if (userRole === 'farmer') {
             const farmerId = 'f_' + Date.now();
-            const newFarmer = {
+            db.farmers.push({
               id: farmerId,
               user_id: userId,
-              name: full_name || '',
+              name: userName,
               email: emailLower,
               phone: phone || '',
               village: profile_data?.village || 'Mandya Rural',
@@ -117,41 +208,67 @@ function farmGridDbPlugin(): Plugin {
               successful_allocations: 0,
               consecutive_losses: 0,
               created_at: new Date().toISOString(),
-            };
-            db.farmers.push(newFarmer);
-          } else if (role === 'organization') {
+            });
+          } else if (userRole === 'organization') {
             const orgId = 'o_' + Date.now();
-            const newOrg = {
+            db.organizations.push({
               id: orgId,
               user_id: userId,
-              org_name: full_name || profile_data?.org_name || 'Agri Organization',
-              contact_person: profile_data?.contact_person || full_name,
+              org_name: userName,
+              contact_person: profile_data?.contact_person || userName,
               contact_number: phone || '',
               operational_region: profile_data?.operational_region || 'Karnataka Region',
               address: profile_data?.address || '',
               org_type: profile_data?.org_type || 'cooperative',
               is_approved: true,
               created_at: new Date().toISOString(),
-            };
-            db.organizations.push(newOrg);
+            });
           }
 
           db.audit_logs.unshift({
             id: 'audit_' + Date.now(),
-            actor_name: full_name || emailLower,
-            actor_role: role,
+            actor_name: userName,
+            actor_role: userRole,
             action: 'USER_REGISTERED_DIRECT',
             entity_type: 'user',
             entity_id: userId,
-            details: `New ${role} registered directly (instant access): ${emailLower}`,
+            details: `User registered and activated directly (offline-ready): ${emailLower}`,
             created_at: new Date().toISOString(),
           });
 
           writeDb(db);
-          return sendJson({ user: newProfile });
+
+          const safeUser = {
+            id: userId,
+            email: emailLower,
+            role: userRole,
+            full_name: userName,
+            phone: phone || '',
+            email_verified: true,
+          };
+
+          return sendJson({
+            success: true,
+            user: safeUser,
+            session: { user: safeUser },
+            message: 'Account created successfully! Logging you in directly.'
+          });
         }
 
-        // ─── AUTH: LOGIN (EMAIL + PASSWORD) ─────────────────────────────────────
+        // ─── AUTH: VERIFY OTP (COMPATIBILITY FALLBACK) ──────────────────────────
+        if (cleanUrl === '/api/auth/verify-otp' && req.method === 'POST') {
+          const body = await getBody();
+          const { email } = body;
+          const emailLower = (email || '').trim().toLowerCase();
+          const profile = db.profiles.find((p: any) => p.email.toLowerCase() === emailLower);
+          return sendJson({
+            success: true,
+            user: profile || null,
+            message: 'Email verified directly.'
+          });
+        }
+
+        // ─── AUTH: LOGIN (DIRECT LOGIN — NO OTP/EMAIL VERIFICATION REQUIRED) ────
         if (cleanUrl === '/api/auth/login' && req.method === 'POST') {
           const body = await getBody();
           const { email, password, expectedRole } = body;
@@ -164,6 +281,17 @@ function farmGridDbPlugin(): Plugin {
           if (user.password && user.password !== password) {
             return sendJson({ error: 'Invalid email or password.' }, 401);
           }
+
+          // Check if email is verified
+          if (user.email_verified === false) {
+            return sendJson({
+              error: 'Please verify your email before logging in.',
+              unverified: true,
+              email: user.email,
+              role: user.role,
+            }, 403);
+          }
+
           if (expectedRole && expectedRole !== 'admin' && user.role !== expectedRole) {
             return sendJson({ error: `This account is registered as "${user.role}", not "${expectedRole}".` }, 403);
           }

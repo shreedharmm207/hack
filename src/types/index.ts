@@ -136,7 +136,7 @@ export interface ResourceRequest {
   syncStatus?: 'pending_sync' | 'synced' | 'failed_sync';
   // Auto-allocation metadata
   allocatedResourceId?: string;
-  allocationMethod?: 'auto' | 'conflict_resolved' | 'admin_override' | 'fcfs_tiebreak';
+  allocationMethod?: 'auto' | 'conflict_resolved' | 'admin_override' | 'fcfs_tiebreak' | 'auto_alternative';
   manualReviewReason?: string;
   waitlistReason?: string;
   fcfsTiebreak?: boolean;
@@ -156,7 +156,7 @@ export interface PriorityBreakdown {
 
 // ─── Allocation ───────────────────────────────────────────────────────────────
 export type AllocationStatus = 'scheduled' | 'active' | 'completed' | 'cancelled';
-export type AllocationMethod = 'auto' | 'conflict_resolved' | 'admin_override' | 'fcfs_tiebreak';
+export type AllocationMethod = 'auto' | 'conflict_resolved' | 'admin_override' | 'fcfs_tiebreak' | 'auto_alternative';
 
 export interface Allocation {
   id: string;
@@ -180,7 +180,7 @@ export interface Allocation {
 
 // ─── Conflict ─────────────────────────────────────────────────────────────────
 export type ConflictStatus = 'open' | 'resolved' | 'escalated' | 'auto_resolved';
-export type ConflictResolution = 'approved_top' | 'override' | 'split' | 'alternative' | 'auto_priority' | 'auto_fcfs';
+export type ConflictResolution = 'approved_top' | 'override' | 'split' | 'alternative' | 'auto_priority' | 'auto_fcfs' | 'auto_alternative';
 
 export interface Conflict {
   id: string;
@@ -201,6 +201,8 @@ export interface Conflict {
   resolvedAt?: string;
   autoResolved?: boolean;
   winnerRequestId?: string;
+  alternativeResourceId?: string;
+  alternativeResourceName?: string;
   createdAt: string;
 }
 
@@ -324,7 +326,7 @@ export interface PaginatedResponse<T> {
 // ─── Allocation Engine Result ─────────────────────────────────────────────────
 export interface AllocationResult {
   success: boolean;
-  method: 'auto' | 'fcfs_tiebreak' | 'waitlisted' | 'manual_review' | 'no_resource' | 'conflict_resolved' | 'admin_override';
+  method: 'auto' | 'fcfs_tiebreak' | 'waitlisted' | 'manual_review' | 'no_resource' | 'conflict_resolved' | 'admin_override' | 'auto_alternative';
   requestId: string;
   allocation?: Allocation;
   conflictId?: string;

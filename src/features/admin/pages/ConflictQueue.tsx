@@ -248,6 +248,9 @@ export default function ConflictQueue() {
                     </div>
                     <div className="flex gap-2 flex-wrap justify-end">
                       {c.status === 'open' && <span className="badge badge-danger">Needs Action</span>}
+                      {(c.resolution === 'auto_alternative' || (c as any).alternative_resource_name || (c as any).alternativeResourceName) && (
+                        <span className="badge bg-teal-100 text-teal-800 border border-teal-300 font-semibold">🔄 Alternative Unit Assigned</span>
+                      )}
                       {(c.autoResolved || c.auto_resolved) && <span className="badge badge-success">⚡ Auto-Resolved</span>}
                       {c.status === 'resolved' && !(c.autoResolved || c.auto_resolved) && <span className="badge badge-primary">Admin Resolved</span>}
                       {(c.scoreDelta ?? c.score_delta ?? 0) < 10 && <span className="badge badge-warning">Close Call</span>}
@@ -262,7 +265,7 @@ export default function ConflictQueue() {
                             (r.requestId || r.request_id) === (c.winnerRequestId || c.winner_request_id) ? 'bg-primary-700' : 'bg-slate-400'
                           }`}>{i + 1}</span>
                           <span className="text-text-secondary">{r.farmerName || r.farmer_name}</span>
-                          {(r.requestId || r.request_id) === (c.winnerRequestId || c.winner_request_id) && <span className="text-primary-600 font-medium">✓ Winner</span>}
+                          {(r.requestId || r.request_id) === (c.winnerRequestId || c.winner_request_id) && <span className="text-primary-600 font-medium">✓ Winner (Primary)</span>}
                         </div>
                         <span className="text-sm font-bold text-primary-700">
                           {r.priorityScore}<span className="text-text-muted text-xs font-normal">/100</span>
@@ -271,7 +274,20 @@ export default function ConflictQueue() {
                     ))}
                   </div>
 
-                  {(c.autoResolved || c.auto_resolved) && (
+                  {((c as any).alternativeResourceName || (c as any).alternative_resource_name || c.resolution === 'auto_alternative') ? (
+                    <div className="p-2.5 bg-teal-50 border border-teal-200 rounded-lg text-xs text-teal-800 mb-3 space-y-1">
+                      <div className="font-semibold flex items-center gap-1.5">
+                        <span>🔄</span>
+                        <span>Alternative Resource Fallback Succeeded:</span>
+                      </div>
+                      <p className="text-teal-700 leading-relaxed">
+                        Winner received primary unit. Competing farmer was automatically routed to compatible alternative unit{' '}
+                        <strong className="underline decoration-teal-400">
+                          {(c as any).alternativeResourceName || (c as any).alternative_resource_name || 'Backup Unit'}
+                        </strong>. Both farmers accommodated!
+                      </p>
+                    </div>
+                  ) : (c.autoResolved || c.auto_resolved) && (
                     <div className="p-2 bg-green-50 border border-green-100 rounded text-xs text-green-700 mb-3">
                       <strong>⚡ Auto-resolved by FarmGrid Engine:</strong>{' '}
                       {c.resolution === 'auto_fcfs'

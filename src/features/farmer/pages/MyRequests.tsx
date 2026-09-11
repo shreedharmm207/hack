@@ -81,6 +81,18 @@ function RequestDetailModal({ request, onClose }: { request: any; onClose: () =>
             </div>
           )}
 
+          {/* Alternative Resource Reallocation Notice */}
+          {(request.allocationMethod === 'auto_alternative' || request.allocation_method === 'auto_alternative' || (request.additional_notes && request.additional_notes.includes('Conflict detected')) || (request.additionalNotes && request.additionalNotes.includes('Conflict detected'))) && (
+            <div className="p-4 bg-teal-50 border border-teal-200 rounded-lg">
+              <div className="text-xs font-semibold text-teal-800 mb-1 flex items-center gap-1.5">
+                <span>🔄</span> CONFLICT RESOLVED VIA ALTERNATIVE ALLOCATION
+              </div>
+              <p className="text-sm text-teal-800 leading-relaxed">
+                A primary unit conflict occurred during your requested time window. FarmGrid's priority scoring engine evaluated all competing requests and automatically found and allocated a compatible alternative resource so your harvest schedule proceeds on time.
+              </p>
+            </div>
+          )}
+
           {/* Why did I get waitlisted? */}
           {request.status === 'waitlisted' && request.waitlistReason && (
             <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
@@ -231,11 +243,15 @@ export default function MyRequests() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold text-text-primary">{resNeeded.slice(0, 50)}</span>
                         <StatusBadge status={req.status} />
-                        {allocMethod && (
+                        {allocMethod === 'auto_alternative' ? (
+                          <span className="text-xs bg-teal-50 text-teal-700 px-2 py-0.5 rounded border border-teal-200 font-semibold">
+                            🔄 Alternative Resource Allocated
+                          </span>
+                        ) : allocMethod ? (
                           <span className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded border border-green-100 font-medium">
                             {ALLOCATION_METHOD_LABELS[allocMethod]?.label || allocMethod}
                           </span>
-                        )}
+                        ) : null}
                       </div>
                       <div className="flex items-center gap-4 mt-1 text-xs text-text-muted flex-wrap">
                         <span>{formatDate(req.earliestStart || req.earliest_start || '')} – {formatDate(req.latestEnd || req.latest_end || '')}</span>

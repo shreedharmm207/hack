@@ -1,4 +1,5 @@
-import type { PriorityBreakdown, CropStage, UrgencyLevel } from '../types';
+import type { PriorityBreakdown, CropStage, UrgencyLevel, ResourceCategory } from '../types';
+import { predictWeatherRisk } from './weatherMlEngine';
 
 // Accept either old camelCase (ResourceRequest) or new snake_case (DB row) shape
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -38,20 +39,17 @@ function scoreUrgency(request: PriorityInput): number {
 }
 
 function scoreWeatherRisk(request: PriorityInput): number {
-  // Simulate weather risk based on crop stage and urgency
-  // In production, this would call a weather API
-  const cropStageRisk: Record<CropStage, number> = {
-    harvesting: 0.95,
-    flowering: 0.85,
-    vegetative: 0.60,
-    seedling: 0.55,
-    post_harvest: 0.25,
-  };
   const cropStage = (request.cropStage || request.crop_stage || 'vegetative') as CropStage;
-  const baseRisk = cropStageRisk[cropStage] ?? 0.5;
-  // Add some pseudo-random variation based on request ID
-  const variance = (parseInt(request.id.slice(-4), 16) % 20) / 100;
-  return Math.min(WEIGHTS.weatherRisk, Math.round((baseRisk + variance) * WEIGHTS.weatherRisk));
+  const resourceType = (request.resourceType || request.resource_type || 'harvester') as ResourceCategory;
+  const lat = request.lat || request.farm_lat || 12.5222;
+  const lng = request.lng || request.farm_lng || 76.8978;
+  
+  const now = new Date();
+  const start = new Date((request.earliestStart || request.earliest_start || now.toISOString()) as string);
+  const dayOffset = Math.max(0, Math.min(14, Math.round((start.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))));
+
+  const mlPred = predictWeatherRisk(cropStage, resourceType, dayOffset, lat, lng);
+  return Math.min(WEIGHTS.weatherRisk, mlPred.weatherRiskScore);
 }
 
 function scoreCropStage(request: PriorityInput): number {

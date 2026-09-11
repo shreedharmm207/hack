@@ -58,6 +58,17 @@ export interface OrgAllocation {
   allocation_method: string;
   tiebreak_explanation: string | null;
   created_at: string;
+  // Priority breakdown (stored if available, otherwise inferred by modal)
+  priority_breakdown?: {
+    urgency: number;
+    weatherRisk: number;
+    cropStage: number;
+    waitingTime: number;
+    logistics: number;
+    constraints: number;
+    total: number;
+    explanation: string;
+  } | null;
   // Joined
   resource?: { name: string; category: string } | null;
   farmer?: { name: string; village: string | null; district: string | null } | null;
@@ -175,6 +186,7 @@ export const loadOrgData = createAsyncThunk(
       .from('allocations') as any)
       .select(`
         *,
+        priority_breakdown,
         resource:resource_id (name, category),
         farmer:farmer_id (name, village, district)
       `)
@@ -219,6 +231,7 @@ export const loadOrgData = createAsyncThunk(
       scheduledStart: a.scheduled_start,
       scheduledEnd: a.scheduled_end,
       priorityScore: a.priority_score,
+      priority_breakdown: a.priority_breakdown || null,
     })) as OrgAllocation[];
 
     const now = new Date();

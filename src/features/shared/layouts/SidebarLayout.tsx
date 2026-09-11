@@ -93,6 +93,11 @@ export default function SidebarLayout({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
+            <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 bg-emerald-50 border border-emerald-200 rounded-full text-[11px] font-semibold text-emerald-800">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>Offline Ready</span>
+              <span className="text-emerald-600 font-normal">· Local Storage & ML Sync</span>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">

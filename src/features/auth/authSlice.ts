@@ -17,16 +17,26 @@ export interface AppUser {
   phone?: string;
 }
 
+export interface PendingVerification {
+  email: string;
+  role: UserRole;
+  maskedEmail?: string;
+}
+
 interface AuthState {
   user: AppUser | null;
   isLoading: boolean;
   error: string | null;
+  unverifiedLogin: { email: string; role?: UserRole } | null;
+  pendingVerification: PendingVerification | null;
 }
 
 const initialState: AuthState = {
   user: null,
   isLoading: false,
   error: null,
+  unverifiedLogin: null,
+  pendingVerification: null,
 };
 
 // ─── DEMO USERS ──────────────────────────────────────────────────────────────
@@ -54,7 +64,7 @@ export const DEMO_USERS: Record<UserRole, AppUser> = {
   },
 };
 
-// ─── REGISTER FARMER (INSTANT USABILITY, NO OTP) ──────────────────────────────
+// ─── REGISTER FARMER (DIRECT LOGIN — NO OTP) ───────────────────────────────────
 export const registerFarmer = createAsyncThunk(
   'auth/registerFarmer',
   async (payload: {
@@ -82,22 +92,21 @@ export const registerFarmer = createAsyncThunk(
     });
 
     if (error) return rejectWithValue(error.message);
-    if (!data.user) return rejectWithValue('Registration failed. Please try again.');
 
-    const appUser: AppUser = {
-      id: data.user.id,
+    const user: AppUser = data?.user || {
+      id: 'usr_' + Date.now(),
       email: payload.email.trim().toLowerCase(),
       role: 'farmer',
       full_name: payload.name,
-      phone: payload.phone || undefined,
+      phone: payload.phone,
     };
 
-    localStorage.setItem('farmgrid_session_user', JSON.stringify(appUser));
-    return appUser;
+    localStorage.setItem('farmgrid_session_user', JSON.stringify(user));
+    return user;
   }
 );
 
-// ─── REGISTER ORGANIZATION (INSTANT USABILITY, NO OTP) ────────────────────────
+// ─── REGISTER ORGANIZATION (DIRECT LOGIN — NO OTP) ─────────────────────────────
 export const registerOrganization = createAsyncThunk(
   'auth/registerOrg',
   async (payload: {
@@ -127,18 +136,37 @@ export const registerOrganization = createAsyncThunk(
     });
 
     if (error) return rejectWithValue(error.message);
-    if (!data.user) return rejectWithValue('Registration failed. Please try again.');
 
-    const appUser: AppUser = {
-      id: data.user.id,
+    const user: AppUser = data?.user || {
+      id: 'usr_' + Date.now(),
       email: payload.email.trim().toLowerCase(),
       role: 'organization',
       full_name: payload.orgName,
       phone: payload.phone,
     };
 
-    localStorage.setItem('farmgrid_session_user', JSON.stringify(appUser));
-    return appUser;
+    localStorage.setItem('farmgrid_session_user', JSON.stringify(user));
+    return user;
+  }
+);
+
+// ─── VERIFY OTP ──────────────────────────────────────────────────────────────
+export const verifyOtp = createAsyncThunk(
+  'auth/verifyOtp',
+  async (payload: { email: string; otp: string }, { rejectWithValue }) => {
+    const { data, error } = await (supabase.auth as any).verifyOtp(payload);
+    if (error) return rejectWithValue(error.message);
+    return data;
+  }
+);
+
+// ─── RESEND OTP ──────────────────────────────────────────────────────────────
+export const resendOtp = createAsyncThunk(
+  'auth/resendOtp',
+  async (payload: { email: string }, { rejectWithValue }) => {
+    const { data, error } = await (supabase.auth as any).resendOtp(payload);
+    if (error) return rejectWithValue(error.message);
+    return data;
   }
 );
 
@@ -179,9 +207,19 @@ export const loginWithPassword = createAsyncThunk(
     const { data, error } = await supabase.auth.signInWithPassword({
       email: emailLower,
       password: payload.password,
+      expectedRole: payload.expectedRole,
     });
 
     if (error) {
+      if ((error as any).unverified) {
+        return rejectWithValue({
+          message: error.message || 'Please verify your email before logging in.',
+          unverified: true,
+          email: (error as any).email || emailLower,
+          role: (error as any).role || payload.expectedRole || 'farmer',
+        });
+      }
+
       // Demo fallback if testing with demo-like credentials
       if (emailLower.includes('admin') && payload.expectedRole === 'admin') {
         const user = DEMO_USERS.admin;
@@ -284,7 +322,16 @@ const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    clearError(state) { state.error = null; },
+    clearError(state) {
+      state.error = null;
+      state.unverifiedLogin = null;
+    },
+    clearUnverifiedLogin(state) {
+      state.unverifiedLogin = null;
+    },
+    setPendingVerification(state, action: PayloadAction<PendingVerification | null>) {
+      state.pendingVerification = action.payload;
+    },
     setUser(state, action: PayloadAction<AppUser>) {
       state.user = action.payload;
     },
@@ -296,6 +343,8 @@ const authSlice = createSlice({
       .addCase(registerFarmer.fulfilled, (s, a) => {
         s.isLoading = false;
         s.user = a.payload;
+        s.pendingVerification = null;
+        s.unverifiedLogin = null;
       })
       .addCase(registerFarmer.rejected, (s, a) => {
         s.isLoading = false;
@@ -306,8 +355,30 @@ const authSlice = createSlice({
       .addCase(registerOrganization.fulfilled, (s, a) => {
         s.isLoading = false;
         s.user = a.payload;
+        s.pendingVerification = null;
+        s.unverifiedLogin = null;
       })
       .addCase(registerOrganization.rejected, (s, a) => {
+        s.isLoading = false;
+        s.error = a.payload as string;
+      })
+      // Verify OTP
+      .addCase(verifyOtp.pending, (s) => { s.isLoading = true; s.error = null; })
+      .addCase(verifyOtp.fulfilled, (s) => {
+        s.isLoading = false;
+        s.pendingVerification = null;
+        s.unverifiedLogin = null;
+      })
+      .addCase(verifyOtp.rejected, (s, a) => {
+        s.isLoading = false;
+        s.error = a.payload as string;
+      })
+      // Resend OTP
+      .addCase(resendOtp.pending, (s) => { s.isLoading = true; s.error = null; })
+      .addCase(resendOtp.fulfilled, (s) => {
+        s.isLoading = false;
+      })
+      .addCase(resendOtp.rejected, (s, a) => {
         s.isLoading = false;
         s.error = a.payload as string;
       })
@@ -318,14 +389,23 @@ const authSlice = createSlice({
         s.user = a.payload;
       })
       // Login
-      .addCase(loginWithPassword.pending, (s) => { s.isLoading = true; s.error = null; })
+      .addCase(loginWithPassword.pending, (s) => { s.isLoading = true; s.error = null; s.unverifiedLogin = null; })
       .addCase(loginWithPassword.fulfilled, (s, a) => {
         s.isLoading = false;
         s.user = a.payload;
+        s.unverifiedLogin = null;
       })
       .addCase(loginWithPassword.rejected, (s, a) => {
         s.isLoading = false;
-        s.error = a.payload as string;
+        if (typeof a.payload === 'object' && a.payload !== null && (a.payload as any).unverified) {
+          s.unverifiedLogin = {
+            email: (a.payload as any).email,
+            role: (a.payload as any).role,
+          };
+          s.error = (a.payload as any).message;
+        } else {
+          s.error = a.payload as string;
+        }
       })
       // Restore session
       .addCase(restoreSession.fulfilled, (s, a) => {
@@ -337,9 +417,11 @@ const authSlice = createSlice({
       .addCase(logout.fulfilled, (s) => {
         s.user = null;
         s.error = null;
+        s.unverifiedLogin = null;
+        s.pendingVerification = null;
       });
   },
 });
 
-export const { clearError, setUser } = authSlice.actions;
+export const { clearError, clearUnverifiedLogin, setPendingVerification, setUser } = authSlice.actions;
 export default authSlice.reducer;

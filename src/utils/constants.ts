@@ -111,6 +111,7 @@ export const CONFLICT_STATUS_COLORS: Record<string, string> = {
 
 export const ALLOCATION_METHOD_LABELS: Record<string, { label: string; color: string }> = {
   auto: { label: 'Auto-Allocated', color: 'badge-success' },
+  auto_alternative: { label: 'Alternative Allocated', color: 'badge-teal' },
   fcfs_tiebreak: { label: 'FCFS Tiebreak', color: 'badge-primary' },
   conflict_resolved: { label: 'Conflict Resolved', color: 'badge-warning' },
   admin_override: { label: 'Admin Override', color: 'badge-neutral' },
